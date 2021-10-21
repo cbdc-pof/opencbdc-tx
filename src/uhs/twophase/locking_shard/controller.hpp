@@ -57,6 +57,8 @@ namespace cbdc::locking_shard {
             -> bool;
         void validation_worker();
 
+        void audit();
+
         config::options m_opts;
         std::shared_ptr<logging::log> m_logger;
         size_t m_shard_id;
@@ -66,13 +68,17 @@ namespace cbdc::locking_shard {
         using validation_request
             = std::pair<cbdc::buffer, cbdc::raft::rpc::validation_callback>;
         blocking_queue<validation_request> m_validation_queue;
-        std::atomic<bool> m_running{true};
 
         std::shared_ptr<state_machine> m_state_machine;
         std::shared_ptr<locking_shard> m_shard;
         std::shared_ptr<raft::node> m_raft_serv;
         std::unique_ptr<rpc::status_server> m_status_server;
         std::unique_ptr<cbdc::rpc::tcp_server<raft::rpc::server>> m_server;
+
+        std::atomic_bool m_running{true};
+        uint64_t m_last_audit_epoch{};
+        std::ofstream m_audit_log;
+        std::thread m_audit_thread;
     };
 }
 
