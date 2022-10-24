@@ -225,11 +225,16 @@ namespace cbdc::transaction {
         auto create_seeded_transaction(size_t seed_idx)
             -> std::optional<full_tx>;
 
-        /// \brief todo: document overload
         auto create_seeded_transaction(size_t seed_idx,
                                        const commitment_t& comm,
                                        const rangeproof_t<>& range)
             -> std::optional<transaction::full_tx>;
+
+        /// \brief todo: document overload
+        auto create_seeded_input(size_t seed_idx,
+                                 const commitment_t& comm,
+                                 const rangeproof_t<>& range)
+            -> std::optional<transaction::input>;
 
         /// Given a set of credit inputs, add the UTXOs and update the wallet's
         /// balance.
@@ -248,6 +253,8 @@ namespace cbdc::transaction {
         size_t m_seed_to{0};
         uint32_t m_seed_value{0};
         hash_t m_seed_witness_commitment{0};
+        std::optional<rangeproof_t<>> m_seed_range_proof{};
+        std::optional<commitment_t> m_seed_value_commitment{};
         /// Queue of spendable inputs, oldest first.
         std::list<input> m_spend_queue;
 
