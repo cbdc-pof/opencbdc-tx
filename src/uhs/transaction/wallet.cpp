@@ -161,8 +161,14 @@ namespace cbdc {
         outp.m_range = range;
         tx.m_outputs[0] = outp;
 
-        auto outpoint = input_from_output(tx, 0).value().m_prevout;
-        outp.m_id = calculate_uhs_id(outpoint, outp, comm);
+        // Note the delicate ordering:
+        // 1) the incomplete output object (missing member .m_id) must first be
+        //    set into tx
+        // 2) tx_id is calculated (which now has the required output)
+        // 3) the output object can now become complete: uhs_id is calculated
+        //    and is set as member .m_id
+        const auto outpoint = transaction::out_point(transaction::tx_id(tx), 0);
+        tx.m_outputs[0].m_id = calculate_uhs_id(outpoint, tx.m_outputs[0], comm);
 
         return tx;
     }
@@ -662,6 +668,18 @@ namespace cbdc {
 
             if(!res) {
                 return std::nullopt;
+            }
+        }
+        else {
+            // Note: uhs_id must be set explicitly (in normal course of
+            // transaction creation, it is set via transaction::add_proof() -->
+            // transaction::prove_output())
+            const auto txid = transaction::tx_id(ret);
+            for(size_t i{0}; i < output_count; i++) {
+                ret.m_outputs[i].m_id
+                    = calculate_uhs_id(transaction::out_point(txid, i),
+                                       ret.m_outputs[i],
+                                       ret.m_outputs[i].m_auxiliary);
             }
         }
 
