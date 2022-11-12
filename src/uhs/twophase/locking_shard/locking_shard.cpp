@@ -179,6 +179,7 @@ namespace cbdc::locking_shard {
                     if(!complete_txs[i] && (was_locked != 0U)) {
                         m_uhs.emplace(uhs_id);
                     }
+                    m_proofs.erase(uhs_id);
                 }
             }
         }
