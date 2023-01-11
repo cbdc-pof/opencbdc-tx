@@ -170,6 +170,10 @@ namespace cbdc {
         const auto outpoint = transaction::out_point(transaction::tx_id(tx), 0);
         tx.m_outputs[0].m_id = calculate_uhs_id(outpoint, tx.m_outputs[0], comm);
 
+        std::vector<transaction::spend_data> out_spend_data{};
+        out_spend_data.push_back(spend);
+        tx.m_out_spend_data = out_spend_data;
+
         return tx;
     }
 
@@ -177,6 +181,10 @@ namespace cbdc {
         -> std::optional<transaction::full_tx> {
         if(m_seed_from == m_seed_to) {
             return std::nullopt;
+        }
+
+        if(m_seed_range_proof.has_value() && m_seed_value_commitment.has_value()) {
+            return create_seeded_transaction(seed_idx, m_seed_value_commitment.value(), m_seed_range_proof.value());
         }
 
         transaction::full_tx tx;
@@ -222,21 +230,12 @@ namespace cbdc {
             return std::nullopt;
         }
 
-        return tx;
-    }
-
-    auto
-    transaction::wallet::create_seeded_input(size_t seed_idx,
-                                             const commitment_t& comm,
-                                             const rangeproof_t<>& range)
-        -> std::optional<transaction::input> {
-        if(m_seed_from == m_seed_to) {
-            return std::nullopt;
+        if(!m_seed_range_proof.has_value() || !m_seed_value_commitment.has_value()) {
+            m_seed_range_proof = tx.m_outputs[0].m_range;
+            m_seed_value_commitment = tx.m_outputs[0].m_auxiliary;
         }
 
-        auto tx = create_seeded_transaction(seed_idx, comm, range).value();
-
-        return input_from_output(tx, 0);
+        return tx;
     }
 
     auto transaction::wallet::create_seeded_input(size_t seed_idx)
@@ -258,11 +257,6 @@ namespace cbdc {
         auto maybe_inp = transaction::input_from_output(tx, 0);
         if(!maybe_inp.has_value()) {
             return std::nullopt;
-        }
-
-        if(!m_seed_range_proof.has_value() || !m_seed_value_commitment.has_value()) {
-            m_seed_range_proof = tx.m_outputs[0].m_range;
-            m_seed_value_commitment = tx.m_outputs[0].m_auxiliary;
         }
 
         auto inp = maybe_inp.value();
@@ -593,13 +587,7 @@ namespace cbdc {
             while(m_seed_from != m_seed_to
                   && ret.m_inputs.size() < input_count) {
                 std::optional<transaction::input> seed_inp{};
-                if(!m_seed_range_proof.has_value() || !m_seed_value_commitment.has_value()) {
-                    seed_inp = create_seeded_input(m_seed_from);
-                } else {
-                    seed_inp = create_seeded_input(m_seed_from,
-                        m_seed_value_commitment.value(),
-                        m_seed_range_proof.value());
-                }
+                seed_inp = create_seeded_input(m_seed_from);
                 if(!seed_inp) {
                     break;
                 }

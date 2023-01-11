@@ -70,15 +70,20 @@ namespace cbdc::transaction {
 
     compact_output::compact_output(const output& put, const out_point& point)
         : m_auxiliary(put.m_auxiliary),
-          m_range(put.m_range.value()),
-          m_provenance(output_nested_hash(point, put)) {}
+          m_provenance(output_nested_hash(point, put)) {
+          std::array<unsigned char, sizeof m_range> buf {};
+          std::memcpy(buf.data(), put.m_range.value().data(), sizeof m_range);
+      }
 
     compact_output::compact_output(const commitment_t& aux,
                                    const rangeproof_t<>& range,
                                    const hash_t& provenance)
         : m_auxiliary(aux),
-          m_range(range),
-          m_provenance(provenance) {}
+          m_provenance(provenance) {
+
+          std::array<unsigned char, sizeof m_range> buf {};
+          std::memcpy(buf.data(), range.data(), sizeof m_range);
+      }
 
     auto compact_output::operator==(const compact_output& rhs) const -> bool {
         return m_auxiliary == rhs.m_auxiliary && m_range == rhs.m_range
@@ -149,6 +154,9 @@ namespace cbdc::transaction {
         ret.m_prevout_data = tx.m_outputs[i];
         // The range proof is not required for the inputs & explicitly removed:
         ret.m_prevout_data.m_range.reset();
+        if(tx.m_out_spend_data.has_value() && tx.m_out_spend_data.value().size() > i) {
+            ret.m_spend_data = tx.m_out_spend_data.value()[i];
+        }
 
         ret.m_prevout.m_index = i;
         ret.m_prevout.m_tx_id = txid;

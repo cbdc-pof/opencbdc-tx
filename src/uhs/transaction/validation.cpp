@@ -86,7 +86,7 @@ namespace cbdc::transaction::validation {
         }
 
         const cbdc::transaction::compact_tx ctx(tx);
-        const auto proof_error = check_proof(ctx, inputs);
+        const auto proof_error = check_proof(tx, inputs);
         if(proof_error) {
             return proof_error;
         }
@@ -281,7 +281,7 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
-    auto check_proof(const compact_tx& tx,
+    auto check_proof(const full_tx& tx,
                      const std::vector<commitment_t>& inps)
         -> std::optional<proof_error> {
         auto* ctx = secp_context.get();

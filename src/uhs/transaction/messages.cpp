@@ -10,6 +10,21 @@
 #include "util/serialization/format.hpp"
 
 namespace cbdc {
+    auto operator<<(serializer& packet, const rangeproof_t<>& op)
+        -> serializer& {
+        auto buf = std::array<unsigned char, cbdc::trunc_rangeproof_len>{};
+        std::memcpy(buf.data(), op.data(), buf.size());
+        return packet << buf;
+    }
+
+    auto operator>>(serializer& packet, rangeproof_t<>& op)
+        -> serializer& {
+        auto buf = std::array<unsigned char, cbdc::trunc_rangeproof_len>{};
+        packet >> buf;
+        std::memcpy(op.data(), buf.data(), buf.size());
+        return packet;
+    }
+
     auto operator<<(serializer& packet, const transaction::out_point& op)
         -> serializer& {
         return packet << op.m_tx_id << op.m_index;

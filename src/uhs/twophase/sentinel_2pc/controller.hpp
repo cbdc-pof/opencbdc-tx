@@ -99,6 +99,30 @@ namespace cbdc::sentinel_2pc {
             m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
                    &secp256k1_context_destroy};
 
+        struct GensDeleter {
+            explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
+
+            void operator()(secp256k1_bulletproofs_generators* gens) const {
+                secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+            }
+
+            secp256k1_context* m_ctx;
+        };
+
+        /// should be twice the bitcount of the range-proof's upper bound
+        ///
+        /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
+        static const inline auto generator_count = 128;
+
+        std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+            m_generators{
+                secp256k1_bulletproofs_generators_create(m_secp.get(),
+                                                         generator_count),
+                GensDeleter(m_secp.get())};
+
+        std::optional<cbdc::commitment_t> m_seed_commitment {};
+        cbdc::rangeproof_t<> m_seed_rangeproof {};
+
         coordinator::rpc::client m_coordinator_client;
 
         std::vector<std::unique_ptr<sentinel::rpc::client>>
@@ -107,6 +131,9 @@ namespace cbdc::sentinel_2pc {
         std::random_device m_r{};
         std::default_random_engine m_rand{m_r()};
         std::uniform_int_distribution<size_t> m_dist{};
+
+        static const inline auto m_random_source
+            = std::make_unique<random_source>(config::random_source);
 
         privkey_t m_privkey{};
     };

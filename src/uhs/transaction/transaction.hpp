@@ -154,7 +154,7 @@ namespace cbdc::transaction {
         /// The nonce used to compress the Pedersen Commitment to 32 bytes
         commitment_t m_auxiliary{};
         /// The rangeproof guaranteeing that the output is greater than 0
-        rangeproof_t<> m_range{};
+        rangeproof_t<cbdc::trunc_rangeproof_len> m_range{};
         /// The nested hash of the outpoint and encumbrance
         hash_t m_provenance{};
 

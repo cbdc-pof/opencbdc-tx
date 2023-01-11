@@ -168,7 +168,7 @@ namespace cbdc::transaction::validation {
         -> std::optional<tx_error>;
     auto check_input_set(const transaction::full_tx& tx)
         -> std::optional<tx_error>;
-    auto check_proof(const compact_tx& tx,
+    auto check_proof(const full_tx& tx,
                      const std::vector<commitment_t>& inps)
         -> std::optional<proof_error>;
     auto check_commitment_sum(

@@ -21,6 +21,8 @@ namespace cbdc {
     static constexpr size_t sig_len = 64;
     /// Size of a standard, compressed EC Point
     static constexpr size_t point_len = 33;
+    /// Size of a truncated rangeproof (in bytes)
+    static constexpr size_t trunc_rangeproof_len = 672;
 
     /// A private key of a public/private keypair.
     using privkey_t = std::array<unsigned char, pubkey_len>;
