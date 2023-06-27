@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# define DBG='rr record --' to launch all components under rr
-# runs for DURATION seconds (defaults to 30)
+DBG='rr record'
+#DBG="${DBG:-gdb -ex run --args}"
 
+# runs for DURATION seconds (defaults to 30)
 # if DURATION is set to 0, sleep infinity
 case "$DURATION" in
     inf|infinity|0) DURATION=infinity;;
@@ -11,9 +12,11 @@ esac
 
 # locate and move to build-dir
 CWD=$(pwd)
+COMMIT=$(git rev-parse --short HEAD)
 TL=$(git rev-parse --show-toplevel)
 RT="${TL:-$CWD}"
 BLD="$RT"/build
+SEEDDIR="$BLD"/preseeds
 TESTDIR="$BLD"/test-$(date +"%s")
 mkdir -p "$TESTDIR"
 printf 'Running test from %s\n' "$TESTDIR"
@@ -47,6 +50,12 @@ CFG="$TESTDIR"/config
 awk "$normalize" "$ORIG_CFG" > "$CFG"
 
 twophase=$(grep -q '2pc=1' "$CFG" && printf '1\n' || printf '0\n')
+arch=
+if test "$twophase" -eq 0; then
+    arch='atomizer'
+else
+    arch='2pc'
+fi
 
 on_int() {
     printf 'Interrupting all components\n'
@@ -62,6 +71,14 @@ on_int() {
             exit 1
         fi
     done
+
+    if test -n "$(find "$TESTDIR" -maxdepth 1 -name '*.perf' -print -quit)"; then
+        for i in "$TESTDIR"/*.perf; do
+            perf script -i "$i" | stackcollapse-perf.pl > "${i/.perf/.folded}"
+            flamegraph.pl "${i/.perf/.folded}" > "${i/.perf/.svg}"
+            rm -- "${i/.perf/.folded}"
+        done
+    fi
 
     printf 'Generating plots\n'
     python "$RT"/scripts/plot.py "$TESTDIR"
@@ -114,17 +131,54 @@ getpath() {
     esac
 }
 
+run() {
+    PROC_LOG="$TESTDIR"/"$PNAME.log"
+    PERF_LOG="$TESTDIR"/"$PNAME-perf.log"
+    COMP=
+    case "$RECORD" in
+        perf)
+            $@ &> "$PROC_LOG" &
+            COMP="$!"
+            perf record -F 99 -a -g -o "$PNAME".perf -p "$COMP" &> "$PERF_LOG" & ;;
+        debug)
+            ${DBG} -- "$@" &> "$PROC_LOG" &
+            COMP="$!";;
+        *)
+            $@ &> "$PROC_LOG" &
+            COMP="$!";;
+    esac
+
+    if test -n "$BLOCK"; then
+        wait "$COMP"
+    fi
+
+    echo "$COMP"
+}
+
 seed() {
     seed_from=$(grep -E 'seed_from=.*' "$CFG" | cut -d'=' -f2)
     seed_from="${seed_from:-0}"
     seed_to=$(grep -E 'seed_to=.*' "$CFG" | cut -d'=' -f2)
     seed_to="${seed_to:-0}"
-    if test "$seed_from" -ne "$seed_to"; then
-        printf 'Seeding from %d to %d\n' "$seed_from" "$seed_to"
-        ${DBG} "$(getpath seeder)" "$CFG" &> seeder.log
-    else
+    seed_count=$(( "$seed_to" - "$seed_from" ))
+    if test "$seed_from" -eq "$seed_to"; then
         printf 'Running without seeding\n'
+        return
     fi
+
+    preseed_id="$arch"_"$COMMIT"_"$seed_count"
+    if test ! -e "$SEEDDIR"/"$preseed_id"; then
+        printf 'Creating %s\n' "$preseed_id"
+        mkdir -p -- "$SEEDDIR"/"$preseed_id"
+        pushd "$SEEDDIR"/"$preseed_id" &> /dev/null
+        PID=$(PNAME=seeder BLOCK=1 run "$(getpath seeder)" "$CFG")
+        popd &> /dev/null
+    fi
+
+    printf 'Using %s as seed\n' "$preseed_id"
+    for i in "$SEEDDIR"/"$preseed_id"/*; do
+        ln -sf -- "$i" "$TESTDIR"/"$(basename "$i")"
+    done
 }
 
 getpgid() {
@@ -146,14 +200,12 @@ launch() {
             raft=$(getcount "$1$id")
             if test "$raft" -gt 0; then
                 for node in $(seq 0 $(( "$raft" - 1 )) ); do
-                    ${DBG} "$(getpath "$1")" "$CFG" "$id" "$node" &> "$1_${id}_$node.log" &
-                    PID="$!"
+                    PID=$(PNAME="$1_${id}_$node" run "$(getpath "$1")" "$CFG" "$id" "$node")
                     printf 'Launched logical %s %d, replica %d [PID: %d]\n' "$1" "$id" "$node" "$PID"
                     PIDS="$PIDS $(getpgid $PID)"
                 done
             else
-                ${DBG} "$(getpath "$1")" "$CFG" "$id" &> "$1_$id.log" &
-                PID="$!"
+                PID=$(PNAME="$1_$id" run "$(getpath "$1")" "$CFG" "$id")
                 printf 'Launched %s %d [PID: %d]\n' "$1" "$id" "$PID"
                 PIDS="$PIDS $(getpgid $PID)"
             fi
