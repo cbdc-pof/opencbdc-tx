@@ -273,7 +273,7 @@ namespace cbdc::transaction {
                 &rangelen,
                 upper_bound,
                 out_spend_data.m_value,
-                0,
+                1,
                 comm, // the commitment for this output
                 out_spend_data.m_blind.data(),
                 rng.random_hash().data(),

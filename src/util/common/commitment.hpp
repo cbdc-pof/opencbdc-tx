@@ -64,6 +64,12 @@ namespace cbdc {
     auto sum_commitments(const secp256k1_context* ctx,
                          std::vector<commitment_t> commitments)
         -> std::optional<commitment_t>;
+
+    /// serialize a commitment to hexadecimal
+    auto to_string(const commitment_t& comm) -> std::string;
+
+    /// deserialize a commitment from hexadecimal
+    auto commitment_from_hex(const std::string& hex) -> commitment_t;
 }
 
 #endif // OPENCBDC_TX_SRC_COMMON_COMMITMENT_H_

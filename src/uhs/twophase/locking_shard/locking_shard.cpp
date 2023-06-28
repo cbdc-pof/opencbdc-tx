@@ -6,7 +6,7 @@
 #include "locking_shard.hpp"
 
 #include "messages.hpp"
-#include "uhs/transaction/validation.hpp"
+#include "format.hpp"
 #include "util/common/config.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/istream_serializer.hpp"
@@ -31,17 +31,12 @@ namespace cbdc::locking_shard {
           m_logger(std::move(logger)),
           m_completed_txs(completed_txs_cache_size),
           m_opts(std::move(opts)) {
-        m_uhs.max_load_factor(std::numeric_limits<float>::max());
         m_applied_dtxs.max_load_factor(std::numeric_limits<float>::max());
         m_prepared_dtxs.max_load_factor(std::numeric_limits<float>::max());
-        m_locked.max_load_factor(std::numeric_limits<float>::max());
 
         static constexpr auto dtx_buckets = 100000;
         m_applied_dtxs.rehash(dtx_buckets);
         m_prepared_dtxs.rehash(dtx_buckets);
-
-        static constexpr auto locked_buckets = 10000000;
-        m_locked.rehash(locked_buckets);
 
         if(!preseed_file.empty()) {
             m_logger->info("Reading preseed file into memory");
@@ -64,17 +59,29 @@ namespace cbdc::locking_shard {
             }
             in.seekg(0, std::ios::beg);
             auto deser = istream_serializer(in);
-            m_uhs.clear();
-            m_proofs.clear();
-            static constexpr auto uhs_size_factor = 2;
-            auto bucket_count = static_cast<unsigned long>(sz / cbdc::hash_size
-                                                           * uhs_size_factor);
-            m_proofs.rehash(bucket_count);
-            m_uhs.rehash(bucket_count);
-            deser >> m_proofs;
-            for(const auto& [k, v] : m_proofs) {
-                m_uhs.insert(k);
+            auto uhs = std::map<hash_t, uhs_element>();
+            deser >> uhs;
+            m_uhs = std::move(uhs);
+
+            std::vector<transaction::spend_data> tmp {};
+            tmp.push_back({{}, m_opts.m_seed_value});
+
+            auto comm = transaction::roll_auxiliaries(m_secp.get(),
+                                                      *m_random_source,
+                                                      {},
+                                                      tmp);
+            if ( comm.empty() ) {
+                return false;
             }
+
+            m_seed_rangeproof = transaction::prove(
+                m_secp.get(),
+                m_generators.get(),
+                *m_random_source,
+                tmp[0],
+                &comm[0]
+            );
+
             return true;
         }
         return false;
@@ -98,6 +105,7 @@ namespace cbdc::locking_shard {
         for(auto&& tx : txs) {
             auto success = check_and_lock_tx(tx);
             ret.push_back(success);
+            m_highest_epoch = std::max(m_highest_epoch, tx.m_epoch);
         }
         auto p = prepared_dtx();
         p.m_results = ret;
@@ -128,9 +136,10 @@ namespace cbdc::locking_shard {
         if(success) {
             for(const auto& uhs_id : t.m_tx.m_inputs) {
                 if(hash_in_shard_range(uhs_id)) {
-                    auto n = m_uhs.extract(uhs_id);
-                    assert(!n.empty());
-                    m_locked.emplace(uhs_id);
+                    auto it = m_uhs.find(uhs_id);
+                    assert(it != m_locked.end());
+                    m_locked.emplace(uhs_id, it->second);
+                    m_uhs.erase(uhs_id);
                 }
             }
         }
@@ -162,26 +171,7 @@ namespace cbdc::locking_shard {
         }
         for(size_t i{0}; i < dtx.size(); i++) {
             auto&& tx = dtx[i];
-            if(hash_in_shard_range(tx.m_tx.m_id)) {
-                m_completed_txs.add(tx.m_tx.m_id);
-            }
-
-            for(auto&& proof : tx.m_tx.m_outputs) {
-                auto uhs_id = transaction::calculate_uhs_id(proof);
-                if(hash_in_shard_range(uhs_id) && complete_txs[i]) {
-                    m_uhs.emplace(uhs_id);
-                    m_proofs.emplace(uhs_id, proof);
-                }
-            }
-            for(auto&& uhs_id : tx.m_tx.m_inputs) {
-                if(hash_in_shard_range(uhs_id)) {
-                    auto was_locked = m_locked.erase(uhs_id);
-                    if(!complete_txs[i] && (was_locked != 0U)) {
-                        m_uhs.emplace(uhs_id);
-                    }
-                    m_proofs.erase(uhs_id);
-                }
-            }
+            apply_tx(tx, complete_txs[i]);
         }
 
         m_prepared_dtxs.erase(dtx_id);
@@ -203,5 +193,99 @@ namespace cbdc::locking_shard {
     auto locking_shard::check_tx_id(const hash_t& tx_id)
         -> std::optional<bool> {
         return m_completed_txs.contains(tx_id);
+    }
+
+    void locking_shard::apply_tx(const tx& t, bool complete) {
+        if(hash_in_shard_range(t.m_tx.m_id)) {
+            m_completed_txs.add(t.m_tx.m_id);
+        }
+
+        auto epoch = t.m_epoch;
+
+        for(auto&& proof : t.m_tx.m_outputs) {
+            auto uhs_id = transaction::calculate_uhs_id(proof);
+            if(!hash_in_shard_range(uhs_id) && complete) {
+                continue;
+            }
+
+            uhs_element el{proof, epoch, std::nullopt};
+            m_uhs.emplace(uhs_id, el);
+        }
+
+        for(auto&& uhs_id : t.m_tx.m_inputs) {
+            if(hash_in_shard_range(uhs_id)) {
+                auto it = m_locked.find(uhs_id);
+                if(it == m_locked.end()) {
+                    continue;
+                }
+                auto elem = it->second;
+                if(!complete) {
+                    m_uhs.emplace(uhs_id, elem);
+                } else {
+                    elem.m_deletion_epoch = t.m_epoch;
+                    m_spent.emplace(uhs_id, elem);
+                }
+                m_locked.erase(uhs_id);
+            }
+        }
+    }
+
+    auto locking_shard::audit(uint64_t epoch)
+        -> std::optional<commitment_t> {
+        {
+            std::unique_lock l(m_mut);
+            m_uhs.snapshot();
+            m_locked.snapshot();
+            m_spent.snapshot();
+        }
+
+        std::vector<commitment_t> comms{};
+        assert(m_seed_rangeproof.has_value());
+        for(const auto& [id, elem] : m_uhs) {
+            if(elem.m_creation_epoch <= epoch
+               && (!elem.m_deletion_epoch.has_value()
+                   || (elem.m_deletion_epoch.value() > epoch))) {
+                auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
+                if(uhs_id != id) {
+                    break;
+                }
+
+                auto rng = transaction::validation::check_range(
+                    elem.m_out.m_auxiliary, m_seed_rangeproof.value());
+                    //elem.m_out.m_auxiliary, elem.m_out.m_range);
+                if(rng.has_value()) {
+                    break;
+                }
+                comms.push_back(elem.m_out.m_auxiliary);
+            }
+        }
+
+        {
+            std::unique_lock l(m_mut);
+            m_uhs.release_snapshot();
+            m_locked.release_snapshot();
+            m_spent.release_snapshot();
+        }
+
+        return sum_commitments(m_secp.get(), comms);
+    }
+
+    auto locking_shard::highest_epoch() const -> uint64_t {
+        std::shared_lock l(m_mut);
+        return m_highest_epoch;
+    }
+
+    void locking_shard::prune(uint64_t epoch) {
+        m_logger->info("Running prune throug", epoch);
+        std::unique_lock l(m_mut);
+        for(auto it = m_spent.begin(); it != m_spent.end();) {
+            auto& elem = it->second;
+            if(elem.m_deletion_epoch.value() < epoch) {
+                it = m_spent.erase(it);
+            } else {
+                it++;
+            }
+        }
+        m_logger->info("Prune complete throug", epoch);
     }
 }

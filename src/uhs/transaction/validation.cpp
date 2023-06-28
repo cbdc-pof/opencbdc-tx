@@ -281,6 +281,39 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
+    auto check_range(const commitment_t& comm, const rangeproof_t<>& rng)
+        -> std::optional<proof_error> {
+
+        auto* ctx = secp_context.get();
+        auto maybe_c = deserialize_commitment(ctx, comm);
+        assert(maybe_c.has_value());
+        auto c = maybe_c.value();
+
+        static constexpr auto scratch_size = 100UL * 1024UL;
+        secp256k1_scratch_space* scratch
+            = secp256k1_scratch_space_create(ctx, scratch_size);
+
+        [[maybe_unused]] auto ret
+            = secp256k1_bulletproofs_rangeproof_uncompressed_verify(
+                ctx,
+                scratch,
+                generators.get(),
+                secp256k1_generator_h,
+                rng.data(),
+                rng.size(),
+                1, // minimum
+                &c,
+                nullptr, // extra commit
+                0        // extra commit length
+            );
+
+        if(ret != 1) {
+            return proof_error{proof_error_code::out_of_range};
+        }
+
+        return std::nullopt;
+    }
+
     auto check_proof(const full_tx& tx,
                      const std::vector<commitment_t>& inps)
         -> std::optional<proof_error> {
@@ -293,8 +326,6 @@ namespace cbdc::transaction::validation {
             }
             auto aux = maybe_aux.value();
             in_comms.push_back(aux);
-
-            // no need to validate range proofs for inputs
         }
         std::vector<secp256k1_pedersen_commitment> out_comms{};
         for(const auto& proof : tx.m_outputs) {
@@ -304,6 +335,11 @@ namespace cbdc::transaction::validation {
             }
             auto aux = maybe_aux.value();
             out_comms.push_back(aux);
+
+            //auto rng = check_range(proof.m_auxiliary, proof.m_range);
+            //if(rng.has_value()) {
+            //    return rng;
+            //}
         }
 
         if(!check_commitment_sum(in_comms, out_comms, 0)) {

@@ -12,6 +12,8 @@
 #include "util/serialization/buffer_serializer.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/ostream_serializer.hpp"
+#include "uhs/twophase/locking_shard/locking_shard.hpp"
+#include "uhs/twophase/locking_shard/format.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -205,9 +207,11 @@ auto main(int argc, char** argv) -> int {
                         const auto& compact_out = ctx.m_outputs[0];
                         const auto& id
                             = cbdc::transaction::calculate_uhs_id(compact_out);
+                        const auto& elem = cbdc::locking_shard::locking_shard::
+                            uhs_element{compact_out, 0};
                         if(id[0] >= shard_start && id[0] <= shard_end) {
                             ser << id;
-                            ser << compact_out;
+                            ser << elem;
                             count++;
                         }
                     }

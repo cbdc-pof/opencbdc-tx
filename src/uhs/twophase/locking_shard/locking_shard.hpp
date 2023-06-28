@@ -10,10 +10,12 @@
 #include "interface.hpp"
 #include "status_interface.hpp"
 #include "uhs/transaction/messages.hpp"
+#include "uhs/transaction/validation.hpp"
 #include "uhs/transaction/transaction.hpp"
 #include "util/common/cache_set.hpp"
 #include "util/common/hash.hpp"
 #include "util/common/hashmap.hpp"
+#include "util/common/snapshot_map.hpp"
 #include "util/common/logging.hpp"
 
 #include <filesystem>
@@ -125,9 +127,36 @@ namespace cbdc::locking_shard {
         [[nodiscard]] auto check_tx_id(const hash_t& tx_id)
             -> std::optional<bool> final;
 
+        /// Takes a snapshot of the UHS and calculates the supply of coins at
+        /// the given epoch. Checks the UHS IDs match the value and nested data
+        /// included in the UHS element.
+        /// \param epoch the epoch to audit the supply at.
+        /// \return commitment to total value in this shard's UHS. std::nullopt
+        ///         if any of the UTXOs do not match their UHS ID.
+        auto audit(uint64_t epoch) -> std::optional<commitment_t>;
+
+        /// Prunes any spent UHS elements spent prior to the given epoch.
+        /// \param epoch epoch to prune prior to.
+        void prune(uint64_t epoch);
+
+        /// Returns the highest epoch seen by the shard so far.
+        /// \return highest epoch.
+        auto highest_epoch() const -> uint64_t;
+
+        struct uhs_element {
+            /// UTXO
+            transaction::compact_output m_out{};
+            /// Epoch in which the UTXO was created.
+            uint64_t m_creation_epoch{};
+            /// Epoch in which the UTXO was spent, or std::nullopt if
+            /// it is unspent.
+            std::optional<uint64_t> m_deletion_epoch{};
+        };
+
       private:
         auto read_preseed_file(const std::string& preseed_file) -> bool;
         auto check_and_lock_tx(const tx& t) -> bool;
+        void apply_tx(const tx& t, bool complete);
 
         struct prepared_dtx {
             std::vector<tx> m_txs;
@@ -137,15 +166,45 @@ namespace cbdc::locking_shard {
 
         std::shared_ptr<logging::log> m_logger;
         mutable std::shared_mutex m_mut;
-        std::unordered_set<hash_t, hashing::null> m_uhs{};
-        std::unordered_map<hash_t, transaction::compact_output, hashing::null>
-            m_proofs{};
-        std::unordered_set<hash_t, hashing::null> m_locked;
+        snapshot_map<hash_t, uhs_element> m_uhs;
+        snapshot_map<hash_t, uhs_element> m_locked;
+        snapshot_map<hash_t, uhs_element> m_spent;
+        std::optional<rangeproof_t<>> m_seed_rangeproof{};
         std::unordered_map<hash_t, prepared_dtx, hashing::null>
             m_prepared_dtxs;
         std::unordered_set<hash_t, hashing::null> m_applied_dtxs;
         cbdc::cache_set<hash_t, hashing::null> m_completed_txs;
         config::options m_opts;
+        uint64_t m_highest_epoch{};
+
+        std::unique_ptr<secp256k1_context,
+                        decltype(&secp256k1_context_destroy)>
+            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+                   &secp256k1_context_destroy};
+
+        static const inline auto m_random_source
+            = std::make_unique<random_source>(config::random_source);
+
+        struct GensDeleter {
+            explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
+
+            void operator()(secp256k1_bulletproofs_generators* gens) const {
+                secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+            }
+
+            secp256k1_context* m_ctx;
+        };
+
+        /// should be twice the bitcount of the range-proof's upper bound
+        ///
+        /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
+        static const inline auto generator_count = 128;
+
+        std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+            m_generators{
+                secp256k1_bulletproofs_generators_create(m_secp.get(),
+                                                         generator_count),
+                GensDeleter(m_secp.get())};
     };
 }
 

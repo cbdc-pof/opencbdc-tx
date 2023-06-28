@@ -9,6 +9,7 @@
 #include "keys.hpp"
 
 #include <array>
+#include <iomanip>
 #include <cstring>
 #include <sstream>
 #include <vector>
@@ -103,5 +104,30 @@ namespace cbdc {
         secp256k1_pubkey_as_pedersen_commitment(ctx, &k, &summary);
 
         return serialize_commitment(ctx, summary);
+    }
+
+    auto to_string(const commitment_t& comm) -> std::string {
+        std::stringstream ret;
+        ret << std::hex << std::setfill('0');
+
+        for(const auto& byte : comm) {
+            ret << std::setw(2) << static_cast<int>(byte);
+        }
+
+        return ret.str();
+    }
+
+    auto commitment_from_hex(const std::string& hex) -> commitment_t {
+        commitment_t ret;
+
+        for(size_t i = 0; i < hex.size(); i += 2) {
+            unsigned int v{};
+            std::stringstream s;
+            s << std::hex << hex.substr(i, 2);
+            s >> v;
+            ret[i / 2] = static_cast<uint8_t>(v);
+        }
+
+        return ret;
     }
 }
