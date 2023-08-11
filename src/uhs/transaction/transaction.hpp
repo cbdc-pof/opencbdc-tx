@@ -60,7 +60,7 @@ namespace cbdc::transaction {
         /// The rangeproof guaranteeing that the output is greater than 0
         /// This rangeproof is only required when functioning as a transaction
         /// output, and is removed when converted into a transaction input.
-        std::optional<rangeproof_t<>> m_range{};
+        std::optional<rangeproof_t> m_range{};
 
         auto operator==(const output& rhs) const -> bool;
         auto operator!=(const output& rhs) const -> bool;
@@ -154,14 +154,14 @@ namespace cbdc::transaction {
         /// The nonce used to compress the Pedersen Commitment to 32 bytes
         commitment_t m_auxiliary{};
         /// The rangeproof guaranteeing that the output is greater than 0
-        rangeproof_t<cbdc::trunc_rangeproof_len> m_range{};
+        rangeproof_t m_range{};
         /// The nested hash of the outpoint and encumbrance
         hash_t m_provenance{};
 
         explicit compact_output(const output& put, const out_point& point);
 
         compact_output(const commitment_t& aux,
-                       const rangeproof_t<>& range,
+                       const rangeproof_t& range,
                        const hash_t& provenance);
         compact_output() = default;
 
@@ -257,10 +257,10 @@ namespace cbdc::transaction {
 
     /// \brief todo: add description
     auto prove(secp256k1_context* ctx,
-               secp256k1_bulletproofs_generators* gens,
+               secp256k1_bppp_generators* gens,
                random_source& rng,
                const spend_data& out_spend_data,
-               const secp256k1_pedersen_commitment* comm) -> rangeproof_t<>;
+               const secp256k1_pedersen_commitment* comm) -> rangeproof_t;
 
     /// \brief Add cryptographic proof to a single output
     ///
@@ -277,7 +277,7 @@ namespace cbdc::transaction {
     /// \return true if all proofs were correctly added to the output,
     ///         false otherwise
     auto prove_output(secp256k1_context* ctx,
-                      secp256k1_bulletproofs_generators* gens,
+                      secp256k1_bppp_generators* gens,
                       random_source& rng,
                       output& put,
                       const out_point& point,
@@ -297,7 +297,7 @@ namespace cbdc::transaction {
     /// \param tx the new transaction for which proofs will be created
     /// \return true if proving was successful; false otherwise
     auto add_proof(secp256k1_context* ctx,
-                   secp256k1_bulletproofs_generators* gens,
+                   secp256k1_bppp_generators* gens,
                    random_source& rng,
                    full_tx& tx) -> bool;
 

@@ -8,7 +8,7 @@
 
 #include <array>
 #include <cstring>
-#include <secp256k1_bulletproofs.h>
+#include <secp256k1_bppp.h>
 #include <vector>
 
 struct secp256k1_context_struct;
@@ -21,8 +21,6 @@ namespace cbdc {
     static constexpr size_t sig_len = 64;
     /// Size of a standard, compressed EC Point
     static constexpr size_t point_len = 33;
-    /// Size of a truncated rangeproof (in bytes)
-    static constexpr size_t trunc_rangeproof_len = 672;
 
     /// A private key of a public/private keypair.
     using privkey_t = std::array<unsigned char, pubkey_len>;
@@ -38,9 +36,7 @@ namespace cbdc {
     /// A range-proof
     /// \tparam N the size (in bytes) of the proof (dependent on the range
     ///           being proven.
-    template<size_t N
-             = SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_>
-    using rangeproof_t = std::array<unsigned char, N>;
+    using rangeproof_t = std::vector<unsigned char>;
 
     /// Generates a public key from the specified private key.
     /// \param privkey private key for which to generate the public key.

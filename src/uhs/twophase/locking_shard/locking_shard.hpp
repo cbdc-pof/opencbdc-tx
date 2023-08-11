@@ -169,7 +169,7 @@ namespace cbdc::locking_shard {
         snapshot_map<hash_t, uhs_element> m_uhs;
         snapshot_map<hash_t, uhs_element> m_locked;
         snapshot_map<hash_t, uhs_element> m_spent;
-        std::optional<rangeproof_t<>> m_seed_rangeproof{};
+        std::optional<rangeproof_t> m_seed_rangeproof{};
         std::unordered_map<hash_t, prepared_dtx, hashing::null>
             m_prepared_dtxs;
         std::unordered_set<hash_t, hashing::null> m_applied_dtxs;
@@ -177,9 +177,11 @@ namespace cbdc::locking_shard {
         config::options m_opts;
         uint64_t m_highest_epoch{};
 
+        using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
         std::unique_ptr<secp256k1_context,
-                        decltype(&secp256k1_context_destroy)>
-            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+                        secp256k1_context_destroy_type>
+            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
                    &secp256k1_context_destroy};
 
         static const inline auto m_random_source
@@ -188,22 +190,22 @@ namespace cbdc::locking_shard {
         struct GensDeleter {
             explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
 
-            void operator()(secp256k1_bulletproofs_generators* gens) const {
-                secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+            void operator()(secp256k1_bppp_generators* gens) const {
+                secp256k1_bppp_generators_destroy(m_ctx, gens);
             }
 
             secp256k1_context* m_ctx;
         };
 
-        /// should be twice the bitcount of the range-proof's upper bound
+        /// should be set to exactly `floor(log_base(value)) + 1`
         ///
-        /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
-        static const inline auto generator_count = 128;
+        /// We use n_bits = 64, base = 16, so this should always be 24.
+        static const inline auto generator_count = 16 + 8;
 
-        std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+        std::unique_ptr<secp256k1_bppp_generators, GensDeleter>
             m_generators{
-                secp256k1_bulletproofs_generators_create(m_secp.get(),
-                                                         generator_count),
+                secp256k1_bppp_generators_create(m_secp.get(),
+                                                 generator_count),
                 GensDeleter(m_secp.get())};
     };
 }

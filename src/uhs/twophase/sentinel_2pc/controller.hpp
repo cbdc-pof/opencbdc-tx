@@ -20,7 +20,7 @@
 
 #include <random>
 #include <secp256k1.h>
-#include <secp256k1_bulletproofs.h>
+#include <secp256k1_bppp.h>
 
 namespace cbdc::sentinel_2pc {
     /// Manages a sentinel server for the two-phase commit architecture.
@@ -94,34 +94,36 @@ namespace cbdc::sentinel_2pc {
 
         std::unique_ptr<cbdc::sentinel::rpc::async_server> m_rpc_server;
 
+        using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
         std::unique_ptr<secp256k1_context,
-                        decltype(&secp256k1_context_destroy)>
-            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+                        secp256k1_context_destroy_type>
+            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
                    &secp256k1_context_destroy};
 
         struct GensDeleter {
             explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
 
-            void operator()(secp256k1_bulletproofs_generators* gens) const {
-                secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+            void operator()(secp256k1_bppp_generators* gens) const {
+                secp256k1_bppp_generators_destroy(m_ctx, gens);
             }
 
             secp256k1_context* m_ctx;
         };
 
-        /// should be twice the bitcount of the range-proof's upper bound
+        /// should be set to exactly `floor(log_base(value)) + 1`.
         ///
-        /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
-        static const inline auto generator_count = 128;
+        /// We use n_bits = 64, base = 16, so this should always be 24.
+        static const inline auto generator_count = 16 + 8;
 
-        std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+        std::unique_ptr<secp256k1_bppp_generators, GensDeleter>
             m_generators{
-                secp256k1_bulletproofs_generators_create(m_secp.get(),
-                                                         generator_count),
+                secp256k1_bppp_generators_create(m_secp.get(),
+                                                 generator_count),
                 GensDeleter(m_secp.get())};
 
         std::optional<cbdc::commitment_t> m_seed_commitment {};
-        cbdc::rangeproof_t<> m_seed_rangeproof {};
+        cbdc::rangeproof_t m_seed_rangeproof {};
 
         coordinator::rpc::client m_coordinator_client;
 

@@ -75,20 +75,27 @@ namespace cbdc::shard {
                     leveldb::Slice OutPointKey(out_arr.data(), id.size());
 
                     static constexpr auto aux_size = sizeof(out.m_auxiliary);
-                    static constexpr auto rng_size = sizeof(out.m_range);
-                    static constexpr auto preimg_size = sizeof(out.m_range);
+                    static constexpr auto sz_size = sizeof(size_t);
+                    const auto rng_size = out.m_range.size();
+                    static constexpr auto preimg_size = sizeof(out.m_provenance);
+                    auto total_size =
+                        aux_size + sz_size + rng_size + preimg_size;
 
-                    std::array<char, aux_size + rng_size + preimg_size>
-                        proofs_arr{};
+                    std::vector<char> proofs_arr{};
+                    proofs_arr.reserve(total_size);
+                    proofs_arr.assign(total_size, 0);
                     std::memcpy(proofs_arr.data(),
                                 out.m_auxiliary.data(),
                                 aux_size);
                     std::memcpy(proofs_arr.data() + aux_size,
+                                &rng_size,
+                                sz_size);
+                    std::memcpy(proofs_arr.data() + aux_size + sz_size,
                                 out.m_range.data(),
-                                out.m_range.size());
-                    std::memcpy(proofs_arr.data() + aux_size + rng_size,
+                                rng_size);
+                    std::memcpy(proofs_arr.data() + aux_size + sz_size + rng_size,
                                 out.m_provenance.data(),
-                                out.m_provenance.size());
+                                preimg_size);
 
                     leveldb::Slice ProofVal(proofs_arr.data(),
                                             proofs_arr.size());
@@ -226,14 +233,18 @@ namespace cbdc::shard {
 
             static constexpr auto comm_size
                 = sizeof(transaction::compact_output::m_auxiliary);
-            static constexpr auto rng_size
-                = sizeof(transaction::compact_output::m_range);
+            size_t rng_size{};
+            static constexpr auto sz_size = sizeof(size_t);
 
             transaction::compact_output outp{};
             hash_t id{};
             std::memcpy(id.data(), key.data(), key.size());
             std::memcpy(outp.m_auxiliary.data(), val.data(), comm_size);
             val.remove_prefix(comm_size);
+            std::memcpy(&rng_size, val.data(), sz_size);
+            val.remove_prefix(sz_size);
+            outp.m_range.reserve(rng_size);
+            outp.m_range.assign(rng_size, 0);
             std::memcpy(outp.m_range.data(), val.data(), rng_size);
             val.remove_prefix(rng_size);
             std::memcpy(outp.m_provenance.data(),

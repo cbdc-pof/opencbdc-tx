@@ -71,25 +71,27 @@ auto main(int argc, char** argv) -> int {
         logger.error("Seed private key not specified");
         return -1;
     }
-    auto secp_context = std::unique_ptr<secp256k1_context,
-                                        decltype(&secp256k1_context_destroy)>(
-        secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
-        &secp256k1_context_destroy);
+    using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
+    std::unique_ptr<secp256k1_context,
+                    secp256k1_context_destroy_type>
+        secp_context{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
+                     &secp256k1_context_destroy};
 
     struct GensDeleter {
         explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
 
-        void operator()(secp256k1_bulletproofs_generators* gens) const {
-            secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+        void operator()(secp256k1_bppp_generators* gens) const {
+            secp256k1_bppp_generators_destroy(m_ctx, gens);
         }
 
         secp256k1_context* m_ctx;
     };
 
-    static std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+    static std::unique_ptr<secp256k1_bppp_generators, GensDeleter>
         bulletproof_gens{
-            secp256k1_bulletproofs_generators_create(secp_context.get(),
-                                                     generator_count),
+            secp256k1_bppp_generators_create(secp_context.get(),
+                                             generator_count),
             GensDeleter(secp_context.get())};
 
     cbdc::random_source rng(cbdc::config::random_source);

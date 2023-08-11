@@ -98,12 +98,12 @@ namespace cbdc::shard {
 
         const std::string m_best_block_height_key;
 
-        static const inline auto m_secp
-            = std::unique_ptr<secp256k1_context,
-                              decltype(&secp256k1_context_destroy)>(
-                secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                         | SECP256K1_CONTEXT_VERIFY),
-                &secp256k1_context_destroy);
+        using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
+        std::unique_ptr<secp256k1_context,
+                        secp256k1_context_destroy_type>
+            m_secp{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
+                   &secp256k1_context_destroy};
 
         std::pair<uint8_t, uint8_t> m_prefix_range;
     };

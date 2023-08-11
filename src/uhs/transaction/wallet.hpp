@@ -228,7 +228,7 @@ namespace cbdc::transaction {
         // todo: document overload
         auto create_seeded_transaction(size_t seed_idx,
                                        const commitment_t& comm,
-                                       const rangeproof_t<>& range)
+                                       const rangeproof_t& range)
             -> std::optional<transaction::full_tx>;
 
         /// Given a set of credit inputs, add the UTXOs and update the wallet's
@@ -248,7 +248,7 @@ namespace cbdc::transaction {
         size_t m_seed_to{0};
         uint32_t m_seed_value{0};
         hash_t m_seed_witness_commitment{0};
-        std::optional<rangeproof_t<>> m_seed_range_proof{};
+        std::optional<rangeproof_t> m_seed_range_proof{};
         std::optional<commitment_t> m_seed_value_commitment{};
         /// Queue of spendable inputs, oldest first.
         std::list<input> m_spend_queue;
@@ -281,29 +281,30 @@ namespace cbdc::transaction {
         struct GensDeleter {
             explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
 
-            void operator()(secp256k1_bulletproofs_generators* gens) const {
-                secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+            void operator()(secp256k1_bppp_generators* gens) const {
+                secp256k1_bppp_generators_destroy(m_ctx, gens);
             }
 
             secp256k1_context* m_ctx;
         };
 
-        /// should be twice the bitcount of the range-proof's upper bound
+        /// should be set to exactly `max(n_bits/log2(base), base) + 7`
         ///
-        /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
-        static const inline auto generator_count = 128;
+        /// We use n_bits = 64, base = 16, so this should always be 24.
+        static const inline auto generator_count = 16 + 8;
 
-        std::unique_ptr<secp256k1_bulletproofs_generators, GensDeleter>
+        std::unique_ptr<secp256k1_bppp_generators, GensDeleter>
             m_generators{
-                secp256k1_bulletproofs_generators_create(m_secp.get(),
-                                                         generator_count),
+                secp256k1_bppp_generators_create(m_secp.get(),
+                                                 generator_count),
                 GensDeleter(m_secp.get())};
+
+        using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
 
         static const inline auto m_secp
             = std::unique_ptr<secp256k1_context,
-                              decltype(&secp256k1_context_destroy)>(
-                secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                         | SECP256K1_CONTEXT_VERIFY),
+                              secp256k1_context_destroy_type>(
+                secp256k1_context_create(SECP256K1_CONTEXT_NONE),
                 &secp256k1_context_destroy);
 
         static const inline auto m_random_source

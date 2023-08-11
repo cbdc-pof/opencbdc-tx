@@ -130,7 +130,7 @@ namespace cbdc {
     auto
     transaction::wallet::create_seeded_transaction(size_t seed_idx,
                                                    const commitment_t& comm,
-                                                   const rangeproof_t<>& range)
+                                                   const rangeproof_t& range)
         -> std::optional<transaction::full_tx> {
         if(m_seed_from == m_seed_to) {
             return std::nullopt;
@@ -387,11 +387,10 @@ namespace cbdc {
 
                 std::array<unsigned char, sig_len> sig_arr{};
                 [[maybe_unused]] const auto sign_ret
-                    = secp256k1_schnorrsig_sign(m_secp.get(),
+                    = secp256k1_schnorrsig_sign32(m_secp.get(),
                                                 sig_arr.data(),
                                                 sighash.data(),
                                                 &keypair,
-                                                nullptr,
                                                 nullptr);
                 std::memcpy(
                     &sig[transaction::validation::p2pk_witness_prog_len],

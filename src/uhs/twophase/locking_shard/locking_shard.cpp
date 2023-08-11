@@ -204,7 +204,7 @@ namespace cbdc::locking_shard {
 
         for(auto&& proof : t.m_tx.m_outputs) {
             auto uhs_id = transaction::calculate_uhs_id(proof);
-            if(!hash_in_shard_range(uhs_id) && complete) {
+            if(!(hash_in_shard_range(uhs_id) && complete)) {
                 continue;
             }
 
@@ -232,6 +232,11 @@ namespace cbdc::locking_shard {
 
     auto locking_shard::audit(uint64_t epoch)
         -> std::optional<commitment_t> {
+
+        if(m_uhs.size() == 0) {
+            return std::nullopt;
+        }
+
         {
             std::unique_lock l(m_mut);
             m_uhs.snapshot();
@@ -240,7 +245,6 @@ namespace cbdc::locking_shard {
         }
 
         std::vector<commitment_t> comms{};
-        assert(m_seed_rangeproof.has_value());
         for(const auto& [id, elem] : m_uhs) {
             if(elem.m_creation_epoch <= epoch
                && (!elem.m_deletion_epoch.has_value()
@@ -251,8 +255,7 @@ namespace cbdc::locking_shard {
                 }
 
                 auto rng = transaction::validation::check_range(
-                    elem.m_out.m_auxiliary, m_seed_rangeproof.value());
-                    //elem.m_out.m_auxiliary, elem.m_out.m_range);
+                    elem.m_out.m_auxiliary, elem.m_out.m_range);
                 if(rng.has_value()) {
                     break;
                 }
@@ -276,7 +279,7 @@ namespace cbdc::locking_shard {
     }
 
     void locking_shard::prune(uint64_t epoch) {
-        m_logger->info("Running prune throug", epoch);
+        m_logger->info("Running prune through", epoch);
         std::unique_lock l(m_mut);
         for(auto it = m_spent.begin(); it != m_spent.end();) {
             auto& elem = it->second;
@@ -286,6 +289,6 @@ namespace cbdc::locking_shard {
                 it++;
             }
         }
-        m_logger->info("Prune complete throug", epoch);
+        m_logger->info("Prune complete through", epoch);
     }
 }

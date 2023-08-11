@@ -468,7 +468,7 @@ TEST_F(PacketIOTest, variant) {
     auto output = cbdc::transaction::output{{'b'},
                                             {'c'},
                                             {'d'},
-                                            cbdc::rangeproof_t<>{'e'}};
+                                            cbdc::rangeproof_t{'e'}};
     auto var = std::variant<cbdc::transaction::out_point,
                             cbdc::transaction::output>(outpoint);
     m_ser << var;

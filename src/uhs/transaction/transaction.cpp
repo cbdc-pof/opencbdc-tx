@@ -70,20 +70,15 @@ namespace cbdc::transaction {
 
     compact_output::compact_output(const output& put, const out_point& point)
         : m_auxiliary(put.m_auxiliary),
-          m_provenance(output_nested_hash(point, put)) {
-          std::array<unsigned char, sizeof m_range> buf {};
-          std::memcpy(buf.data(), put.m_range.value().data(), sizeof m_range);
-      }
+          m_range(put.m_range.value()),
+          m_provenance(output_nested_hash(point, put)) {}
 
     compact_output::compact_output(const commitment_t& aux,
-                                   const rangeproof_t<>& range,
+                                   const rangeproof_t& range,
                                    const hash_t& provenance)
         : m_auxiliary(aux),
-          m_provenance(provenance) {
-
-          std::array<unsigned char, sizeof m_range> buf {};
-          std::memcpy(buf.data(), range.data(), sizeof m_range);
-      }
+          m_range(range),
+          m_provenance(provenance) {}
 
     auto compact_output::operator==(const compact_output& rhs) const -> bool {
         return m_auxiliary == rhs.m_auxiliary && m_range == rhs.m_range
@@ -257,37 +252,49 @@ namespace cbdc::transaction {
     }
 
     auto prove(secp256k1_context* ctx,
-               secp256k1_bulletproofs_generators* gens,
+               secp256k1_bppp_generators* gens,
                random_source& rng,
                const spend_data& out_spend_data,
-               const secp256k1_pedersen_commitment* comm) -> rangeproof_t<> {
-        rangeproof_t<> range{};
-        size_t rangelen = range.size();
+               const secp256k1_pedersen_commitment* comm) -> rangeproof_t {
+
+        static constexpr auto scratch_size = 100UL * 1024UL;
+        secp256k1_scratch_space* scratch
+            = secp256k1_scratch_space_create(ctx, scratch_size);
+
         static constexpr auto upper_bound = 64; // 2^64 - 1
+        static constexpr auto base = 16;
+
+        rangeproof_t range{};
+        size_t rangelen
+            = secp256k1_bppp_rangeproof_proof_length(ctx, upper_bound, base);
+        range.assign(rangelen, 0);
+
         [[maybe_unused]] auto ret
-            = secp256k1_bulletproofs_rangeproof_uncompressed_prove(
+            = secp256k1_bppp_rangeproof_prove(
                 ctx,
+                scratch,
                 gens,
                 secp256k1_generator_h,
                 range.data(),
                 &rangelen,
                 upper_bound,
+                base,
                 out_spend_data.m_value,
                 1,
                 comm, // the commitment for this output
                 out_spend_data.m_blind.data(),
                 rng.random_hash().data(),
-                nullptr, // enc_data
                 nullptr, // extra_commit
                 0        // extra_commit length
             );
+
         assert(ret == 1);
 
         return range;
     }
 
     auto prove_output(secp256k1_context* ctx,
-                      secp256k1_bulletproofs_generators* gens,
+                      secp256k1_bppp_generators* gens,
                       random_source& rng,
                       output& put,
                       const out_point& point,
@@ -305,7 +312,7 @@ namespace cbdc::transaction {
     }
 
     auto add_proof(secp256k1_context* ctx,
-                   secp256k1_bulletproofs_generators* gens,
+                   secp256k1_bppp_generators* gens,
                    random_source& rng,
                    full_tx& tx) -> bool {
         std::vector<hash_t> blinds{};
@@ -386,12 +393,11 @@ namespace cbdc::transaction {
 
         auto sig = signature_t();
         [[maybe_unused]] const auto sign_ret
-            = secp256k1_schnorrsig_sign(ctx,
-                                        sig.data(),
-                                        payload.data(),
-                                        &keypair,
-                                        nullptr,
-                                        nullptr);
+            = secp256k1_schnorrsig_sign32(ctx,
+                                          sig.data(),
+                                          payload.data(),
+                                          &keypair,
+                                          nullptr);
         assert(sign_ret == 1);
         return {pubkey, sig};
     }
@@ -419,6 +425,7 @@ namespace cbdc::transaction {
         if(secp256k1_schnorrsig_verify(ctx,
                                        att.second.data(),
                                        payload.data(),
+                                       payload.size(),
                                        &pubkey)
            != 1) {
             return false;

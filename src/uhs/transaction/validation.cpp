@@ -15,33 +15,33 @@
 #include <set>
 
 namespace cbdc::transaction::validation {
-    static const auto secp_context
-        = std::unique_ptr<secp256k1_context,
-                          decltype(&secp256k1_context_destroy)>(
-            secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                     | SECP256K1_CONTEXT_VERIFY),
-            &secp256k1_context_destroy);
+    using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
+    std::unique_ptr<secp256k1_context,
+                    secp256k1_context_destroy_type>
+        secp_context{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
+               &secp256k1_context_destroy};
 
     struct GensDeleter {
         explicit GensDeleter(secp256k1_context* ctx) : m_ctx(ctx) {}
 
-        void operator()(secp256k1_bulletproofs_generators* gens) const {
-            secp256k1_bulletproofs_generators_destroy(m_ctx, gens);
+        void operator()(secp256k1_bppp_generators* gens) const {
+            secp256k1_bppp_generators_destroy(m_ctx, gens);
         }
 
         secp256k1_context* m_ctx;
     };
 
-    /// should be twice the bitcount of the range-proof's upper bound
+    /// should be set to exactly `floor(log_base(value)) + 1`.
     ///
-    /// e.g., if proving things in the range [0, 2^64-1], it should be 128.
-    static const auto inline generator_count = 128;
+    /// We use n_bits = 64, base = 16, so this should always be 24.
+    static const inline auto generator_count = 16 + 8;
 
-    static const std::unique_ptr<secp256k1_bulletproofs_generators,
-                                 GensDeleter>
-        generators{secp256k1_bulletproofs_generators_create(secp_context.get(),
-                                                            generator_count),
-                   GensDeleter(secp_context.get())};
+    std::unique_ptr<secp256k1_bppp_generators, GensDeleter>
+        generators{
+            secp256k1_bppp_generators_create(secp_context.get(),
+                                             generator_count),
+            GensDeleter(secp_context.get())};
 
     auto input_error::operator==(const input_error& rhs) const -> bool {
         return std::tie(m_code, m_data_err, m_idx)
@@ -218,6 +218,7 @@ namespace cbdc::transaction::validation {
         if(secp256k1_schnorrsig_verify(secp_context.get(),
                                        sig_arr.data(),
                                        sighash.data(),
+                                       sighash.size(),
                                        &pubkey)
            != 1) {
             return witness_error_code::invalid_signature;
@@ -281,7 +282,7 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
-    auto check_range(const commitment_t& comm, const rangeproof_t<>& rng)
+    auto check_range(const commitment_t& comm, const rangeproof_t& rng)
         -> std::optional<proof_error> {
 
         auto* ctx = secp_context.get();
@@ -294,13 +295,15 @@ namespace cbdc::transaction::validation {
             = secp256k1_scratch_space_create(ctx, scratch_size);
 
         [[maybe_unused]] auto ret
-            = secp256k1_bulletproofs_rangeproof_uncompressed_verify(
+            = secp256k1_bppp_rangeproof_verify(
                 ctx,
                 scratch,
                 generators.get(),
                 secp256k1_generator_h,
                 rng.data(),
                 rng.size(),
+                64,
+                16,
                 1, // minimum
                 &c,
                 nullptr, // extra commit
@@ -336,10 +339,10 @@ namespace cbdc::transaction::validation {
             auto aux = maybe_aux.value();
             out_comms.push_back(aux);
 
-            //auto rng = check_range(proof.m_auxiliary, proof.m_range);
-            //if(rng.has_value()) {
-            //    return rng;
-            //}
+            auto rng = check_range(proof.m_auxiliary, proof.m_range.value());
+            if(rng.has_value()) {
+                return rng;
+            }
         }
 
         if(!check_commitment_sum(in_comms, out_comms, 0)) {

@@ -90,7 +90,7 @@ namespace cbdc::sentinel_2pc {
     auto controller::execute_transaction(
         transaction::full_tx tx,
         execute_result_callback_type result_callback) -> bool {
-        if ( !m_seed_commitment.has_value() ) {
+        if(m_opts.m_seed_value > 0 && !m_seed_commitment.has_value()) {
             std::vector<cbdc::transaction::spend_data> tmp {};
             tmp.push_back({{}, m_opts.m_seed_value});
 
@@ -98,9 +98,7 @@ namespace cbdc::sentinel_2pc {
                                                       *m_random_source,
                                                       {},
                                                       tmp);
-            if ( comm.empty() ) {
-                return false;
-            }
+            if(comm.empty()) { return false; }
 
             m_seed_commitment = serialize_commitment(m_secp.get(), comm[0]);
 
@@ -114,8 +112,8 @@ namespace cbdc::sentinel_2pc {
         }
 
         // modify tx to include the seed range proof
-        if ( m_opts.m_fixed_tx_mode && m_opts.m_fixed_tx_rate > 0.0 ) {
-            for ( auto& outp : tx.m_outputs ) {
+        if(m_opts.m_fixed_tx_mode && m_opts.m_fixed_tx_rate > 0.0 && m_seed_commitment.has_value()) {
+            for(auto& outp : tx.m_outputs) {
                 outp.m_auxiliary = m_seed_commitment.value();
                 outp.m_range = m_seed_rangeproof;
             }
