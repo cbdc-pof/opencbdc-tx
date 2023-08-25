@@ -32,6 +32,7 @@ auto main(int argc, char** argv) -> int {
         std::unordered_map<unsigned char, cbdc::commitment_t>>();
 
     // todo: ensure/detect whether or not the most recent audit has finished
+    // todo: correct format (SAM START HERE)
     for(auto& audit_file : cfg.m_shard_audit_logs) {
         auto f = std::ifstream(audit_file);
         if(!f.good()) {
