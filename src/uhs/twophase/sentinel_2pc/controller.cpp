@@ -112,12 +112,12 @@ namespace cbdc::sentinel_2pc {
         }
 
         // modify tx to include the seed range proof
-        if(m_opts.m_fixed_tx_mode && m_opts.m_fixed_tx_rate > 0.0 && m_seed_commitment.has_value()) {
-            for(auto& outp : tx.m_outputs) {
-                outp.m_auxiliary = m_seed_commitment.value();
-                outp.m_range = m_seed_rangeproof;
-            }
-        }
+        //if(m_opts.m_fixed_tx_mode && m_opts.m_fixed_tx_rate > 0.0 && m_seed_commitment.has_value()) {
+        //    for(auto& outp : tx.m_outputs) {
+        //        outp.m_auxiliary = m_seed_commitment.value();
+        //        outp.m_range = m_seed_rangeproof;
+        //    }
+        //}
 
         const auto validation_err = transaction::validation::check_tx(tx);
 
