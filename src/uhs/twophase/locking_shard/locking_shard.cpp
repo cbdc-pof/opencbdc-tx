@@ -233,10 +233,6 @@ namespace cbdc::locking_shard {
     auto locking_shard::audit(uint64_t epoch)
         -> std::optional<commitment_t> {
 
-        if(m_uhs.size() == 0) {
-            return std::nullopt;
-        }
-
         {
             std::unique_lock l(m_mut);
             m_uhs.snapshot();
@@ -245,22 +241,43 @@ namespace cbdc::locking_shard {
         }
 
         std::vector<commitment_t> comms{};
-        for(const auto& [id, elem] : m_uhs) {
-            if(elem.m_creation_epoch <= epoch
-               && (!elem.m_deletion_epoch.has_value()
-                   || (elem.m_deletion_epoch.value() > epoch))) {
-                auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
-                if(uhs_id != id) {
-                    break;
-                }
+        auto summarize
+            = [epoch, &comms](const snapshot_map<hash_t, uhs_element>& m)
+            -> bool {
+            for(const auto& [id, elem] : m) {
+                if(elem.m_creation_epoch <= epoch
+                   && (!elem.m_deletion_epoch.has_value()
+                       || (elem.m_deletion_epoch.value() > epoch))) {
+                    auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
+                    if(uhs_id != id) {
+                        return false;
+                    }
 
-                auto rng = transaction::validation::check_range(
-                    elem.m_out.m_auxiliary, elem.m_out.m_range);
-                if(rng.has_value()) {
-                    break;
+                    auto rng = transaction::validation::check_range(
+                        elem.m_out.m_auxiliary, elem.m_out.m_range);
+                    if(rng.has_value()) {
+                        return false;
+                    }
+                    comms.push_back(elem.m_out.m_auxiliary);
                 }
-                comms.push_back(elem.m_out.m_auxiliary);
             }
+
+            return true;
+        };
+
+        auto available = summarize(m_uhs);
+        if(!available) {
+            return std::nullopt;
+        }
+
+        auto locked = summarize(m_locked);
+        if(!locked) {
+            return std::nullopt;
+        }
+
+        auto spent = summarize(m_spent);
+        if(!spent) {
+            return std::nullopt;
         }
 
         {
