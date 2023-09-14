@@ -170,5 +170,3 @@ BENCHMARK_F(low_level, calculate_uhs_id)(benchmark::State& state) {
         cbdc::transaction::calculate_uhs_id(cp_tx.m_outputs[0]);
     }
 }
-
-BENCHMARK_MAIN();
