@@ -288,6 +288,8 @@ namespace cbdc::transaction {
                 0        // extra_commit length
             );
 
+        secp256k1_scratch_space_destroy(ctx, scratch);
+
         assert(ret == 1);
 
         return range;

@@ -310,6 +310,8 @@ namespace cbdc::transaction::validation {
                 0        // extra commit length
             );
 
+        secp256k1_scratch_space_destroy(ctx, scratch);
+
         if(ret != 1) {
             return proof_error{proof_error_code::out_of_range};
         }
