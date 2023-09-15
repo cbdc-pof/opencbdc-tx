@@ -90,52 +90,64 @@ static auto audit(snapshot_map<hash_t, uhs_element>& uhs,
         spent.snapshot();
     }
 
+    bool failed = false;
     uint64_t epoch = EPOCH;
 
-    std::vector<commitment_t> comms{};
+    std::vector<std::future<std::optional<commitment_t>>> pool{};
     auto summarize
-        = [epoch, &comms](const snapshot_map<hash_t, uhs_element>& m)
-        -> bool {
+        = [&](const snapshot_map<hash_t, uhs_element>& m) {
         for(const auto& [id, elem] : m) {
             if(elem.m_creation_epoch <= epoch
                && (!elem.m_deletion_epoch.has_value()
                    || (elem.m_deletion_epoch.value() > epoch))) {
-                auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
-                if(uhs_id != id) {
-                    return false;
-                }
 
-                auto rng = transaction::validation::check_range(
-                    elem.m_out.m_auxiliary, elem.m_out.m_range);
-                if(rng.has_value()) {
-                    return false;
-                }
-                comms.push_back(elem.m_out.m_auxiliary);
+                auto f = std::async(std::launch::async,
+                    [&]() -> std::optional<commitment_t> {
+                        auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
+                        if(uhs_id != id) {
+                            return std::nullopt;
+                        }
+
+                        auto comm = elem.m_out.m_auxiliary;
+                        auto res = transaction::validation::check_range(comm,
+                            elem.m_out.m_range);
+                        if(res.has_value()) {
+                            return std::nullopt;
+                        }
+
+                        return comm;
+                    }
+                );
+
+                pool.emplace_back(std::move(f));
             }
         }
-
-        return true;
     };
 
-    auto available_sum = summarize(uhs);
-    if(!available_sum) {
-        return std::nullopt;
-    }
+    summarize(uhs);
+    summarize(locked);
+    summarize(spent);
 
-    auto locked_sum = summarize(locked);
-    if(!locked_sum) {
-        return std::nullopt;
-    }
+    std::vector<commitment_t> comms{};
+    comms.reserve(pool.size());
 
-    auto spent_sum = summarize(spent);
-    if(!spent_sum) {
-        return std::nullopt;
+    for(auto& f : pool) {
+        auto c = f.get();
+        failed |= !c.has_value();
+        if(failed) {
+            break;
+        }
+        comms.emplace_back(std::move(c.value()));
     }
 
     {
         uhs.release_snapshot();
         locked.release_snapshot();
         spent.release_snapshot();
+    }
+
+    if(failed) {
+        return std::nullopt;
     }
 
     return sum_commitments(secp.get(), comms);
@@ -159,7 +171,7 @@ static void audit_routine(benchmark::State& state) {
         spent_sz = spent(m_shuffle);
     }
 
-    snapshot_map<hash_t, uhs_element> uhs = gen_map(key_count);
+    snapshot_map<hash_t, uhs_element> uhs = gen_map(key_count - (locked_sz + spent_sz));
     snapshot_map<hash_t, uhs_element> locked = gen_map(locked_sz);
     snapshot_map<hash_t, uhs_element> spent = gen_map(spent_sz, true);
     for(auto _ : state) {

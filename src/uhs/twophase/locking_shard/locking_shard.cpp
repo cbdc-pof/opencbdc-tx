@@ -240,44 +240,62 @@ namespace cbdc::locking_shard {
             m_spent.snapshot();
         }
 
-        std::vector<commitment_t> comms{};
+        std::atomic_bool failed = false;
+
+        std::vector<std::future<std::optional<commitment_t>>> pool{};
         auto summarize
-            = [epoch, &comms](const snapshot_map<hash_t, uhs_element>& m)
-            -> bool {
+            = [&](const snapshot_map<hash_t, uhs_element>& m) {
             for(const auto& [id, elem] : m) {
+                if(failed) {
+                    break;
+                }
                 if(elem.m_creation_epoch <= epoch
                    && (!elem.m_deletion_epoch.has_value()
                        || (elem.m_deletion_epoch.value() > epoch))) {
-                    auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
-                    if(uhs_id != id) {
-                        return false;
-                    }
 
-                    auto rng = transaction::validation::check_range(
-                        elem.m_out.m_auxiliary, elem.m_out.m_range);
-                    if(rng.has_value()) {
-                        return false;
-                    }
-                    comms.push_back(elem.m_out.m_auxiliary);
+                    auto f = std::async(std::launch::async,
+                        [&]() -> std::optional<commitment_t> {
+                            auto uhs_id
+                                = transaction::calculate_uhs_id(elem.m_out);
+                            if(uhs_id != id) {
+                                failed = true;
+                                return std::nullopt;
+                            }
+
+                            auto comm = elem.m_out.m_auxiliary;
+                            auto res = transaction::validation::check_range(
+                                comm,
+                                elem.m_out.m_range);
+                            if(res.has_value()) {
+                                failed = true;
+                                return std::nullopt;
+                            }
+
+                            return comm;
+                        }
+                    );
+
+                    pool.emplace_back(std::move(f));
                 }
             }
-
-            return true;
         };
 
-        auto available = summarize(m_uhs);
-        if(!available) {
-            return std::nullopt;
-        }
+        summarize(m_uhs);
+        summarize(m_locked);
+        summarize(m_spent);
 
-        auto locked = summarize(m_locked);
-        if(!locked) {
-            return std::nullopt;
-        }
+        std::vector<commitment_t> comms{};
+        if(!failed) {
+            comms.reserve(pool.size());
 
-        auto spent = summarize(m_spent);
-        if(!spent) {
-            return std::nullopt;
+            for(auto& f : pool) {
+                auto c = f.get();
+                failed = !c.has_value();
+                if(failed) {
+                    break;
+                }
+                comms.emplace_back(std::move(c.value()));
+            }
         }
 
         {
@@ -285,6 +303,10 @@ namespace cbdc::locking_shard {
             m_uhs.release_snapshot();
             m_locked.release_snapshot();
             m_spent.release_snapshot();
+        }
+
+        if(failed) {
+            return std::nullopt;
         }
 
         return sum_commitments(m_secp.get(), comms);
