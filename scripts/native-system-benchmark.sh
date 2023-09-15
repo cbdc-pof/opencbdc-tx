@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-DBG='rr record'
-#DBG="${DBG:-gdb -ex run --args}"
+RR='rr record'
+GDB='gdb -ex run --args'
+VALGRIND='valgrind --leak-check=full'
+DBG="${DBG:-$RR}"
 
 # runs for DURATION seconds (defaults to 30)
 # if DURATION is set to 0, sleep infinity
@@ -57,13 +59,14 @@ else
     arch='2pc'
 fi
 
+PERFS=
 on_int() {
     printf 'Interrupting all components\n'
     trap '' SIGINT # avoid interrupting ourself
-    for i in $PIDS; do # intentionally unquoted
+    for i in $PIDS $PERFS; do # intentionally unquoted
         kill -SIGINT -- "-$i"
     done
-    sleep 5
+    wait
 
     for i in "$TESTDIR"/tx_samples_*.txt; do
         if ! test -s "$i"; then
@@ -73,7 +76,9 @@ on_int() {
     done
 
     if test -n "$(find "$TESTDIR" -maxdepth 1 -name '*.perf' -print -quit)"; then
+        printf 'Generating Flamegraphs\n'
         for i in "$TESTDIR"/*.perf; do
+            waitpid -t 5 -e $(lsof -Qt "$i") &>/dev/null
             perf script -i "$i" | stackcollapse-perf.pl > "${i/.perf/.folded}"
             flamegraph.pl "${i/.perf/.folded}" > "${i/.perf/.svg}"
             rm -- "${i/.perf/.folded}"
@@ -139,7 +144,8 @@ run() {
         perf)
             $@ &> "$PROC_LOG" &
             COMP="$!"
-            perf record -F 99 -a -g -o "$PNAME".perf -p "$COMP" &> "$PERF_LOG" & ;;
+            perf record -F 99 -a -g -o "$PNAME".perf -p "$COMP" &> "$PERF_LOG" &
+            PERFS="$PERFS $!";;
         debug)
             ${DBG} -- "$@" &> "$PROC_LOG" &
             COMP="$!";;
