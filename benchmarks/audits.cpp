@@ -19,7 +19,7 @@
 #include <random>
 #include <unordered_set>
 
-#define SWEEP_MAX 10000
+#define SWEEP_MAX 100000
 #define EPOCH     1000
 
 using namespace cbdc;
@@ -93,52 +93,77 @@ static auto audit(snapshot_map<hash_t, uhs_element>& uhs,
     bool failed = false;
     uint64_t epoch = EPOCH;
 
-    std::vector<std::future<std::optional<commitment_t>>> pool{};
+    static constexpr auto scratch_size = 8192UL * 1024UL;
+    [[maybe_unused]] secp256k1_scratch_space* scratch
+        = secp256k1_scratch_space_create(secp.get(), scratch_size);
+
+    static constexpr size_t threshold = 100000;
+    size_t cursor = 0;
+    std::vector<commitment_t> comms{};
+    auto* range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
     auto summarize
         = [&](const snapshot_map<hash_t, uhs_element>& m) {
         for(const auto& [id, elem] : m) {
+            if(failed) {
+                break;
+            }
             if(elem.m_creation_epoch <= epoch
                && (!elem.m_deletion_epoch.has_value()
                    || (elem.m_deletion_epoch.value() > epoch))) {
 
-                auto f = std::async(std::launch::async,
-                    [&]() -> std::optional<commitment_t> {
-                        auto uhs_id = transaction::calculate_uhs_id(elem.m_out);
-                        if(uhs_id != id) {
-                            return std::nullopt;
-                        }
-
-                        auto comm = elem.m_out.m_auxiliary;
-                        auto res = transaction::validation::check_range(comm,
-                            elem.m_out.m_range);
-                        if(res.has_value()) {
-                            return std::nullopt;
-                        }
-
-                        return comm;
-                    }
+                auto uhs_id
+                    = transaction::calculate_uhs_id(elem.m_out);
+                if(uhs_id != id) {
+                    failed = true;
+                }
+                auto comm = elem.m_out.m_auxiliary;
+                auto c = deserialize_commitment(secp.get(), comm).value();
+                auto r = transaction::validation::range_batch_add(
+                    *range_batch,
+                    scratch,
+                    elem.m_out.m_range,
+                    c
                 );
-
-                pool.emplace_back(std::move(f));
+                if(!r.has_value()) {
+                    ++cursor;
+                }
+                comms.push_back(comm);
             }
+            if(cursor >= threshold) {
+                failed = transaction::validation::check_range_batch(*range_batch).has_value();
+                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(secp.get(), range_batch);
+                free(range_batch);
+                range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
+                cursor = 0;
+            }
+        }
+        if(cursor > 0) {
+            failed = transaction::validation::check_range_batch(*range_batch).has_value();
+            [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(secp.get(), range_batch);
+            free(range_batch);
+            range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
+            cursor = 0;
         }
     };
 
     summarize(uhs);
     summarize(locked);
     summarize(spent);
+    free(range_batch);
 
-    std::vector<commitment_t> comms{};
-    comms.reserve(pool.size());
+    secp256k1_scratch_space_destroy(secp.get(), scratch);
 
-    for(auto& f : pool) {
-        auto c = f.get();
-        failed |= !c.has_value();
-        if(failed) {
-            break;
-        }
-        comms.emplace_back(std::move(c.value()));
-    }
+//    std::vector<commitment_t> comms{};
+//    comms.reserve(pool.size());
+//
+//    for(auto& f : pool) {
+//        auto c = f.get();
+//        failed = !c.has_value();
+//        if(failed) {
+//            break;
+//        }
+//        comms.emplace_back(std::move(c.value()));
+//k   }
 
     {
         uhs.release_snapshot();

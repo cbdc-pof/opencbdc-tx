@@ -170,6 +170,13 @@ namespace cbdc::transaction::validation {
         -> std::optional<tx_error>;
     auto check_range(const commitment_t& comm, const rangeproof_t& rng)
         -> std::optional<proof_error>;
+    auto range_batch_add(secp256k1_ecmult_multi_batch& batch,
+                         secp256k1_scratch_space* scratch,
+                         const rangeproof_t& rng,
+                         secp256k1_pedersen_commitment& comm)
+        -> std::optional<proof_error>;
+    auto check_range_batch(const secp256k1_ecmult_multi_batch& batch)
+        -> std::optional<proof_error>;
     auto check_proof(const full_tx& tx,
                      const std::vector<commitment_t>& inps)
         -> std::optional<proof_error>;

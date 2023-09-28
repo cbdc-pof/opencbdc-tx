@@ -319,6 +319,55 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
+    auto range_batch_add(secp256k1_ecmult_multi_batch& batch,
+                         secp256k1_scratch_space* scratch,
+                         const rangeproof_t& rng,
+                         secp256k1_pedersen_commitment& comm)
+        -> std::optional<proof_error> {
+
+        [[maybe_unused]] auto ret
+            = secp256k1_bppp_rangeproof_batch_add(
+                secp_context.get(),
+                scratch,
+                generators.get(),
+                secp256k1_generator_h,
+                rng.data(),
+                rng.size(),
+                64,
+                16,
+                1,
+                &comm,
+                &batch
+            );
+
+        if(ret != 1) {
+            return proof_error{proof_error_code::out_of_range};
+        }
+
+        return std::nullopt;
+    }
+
+    auto check_range_batch(const secp256k1_ecmult_multi_batch& batch)
+        -> std::optional<proof_error> {
+
+        auto* ctx = secp_context.get();
+        static constexpr auto scratch_size = 1024UL * 1024UL;
+        secp256k1_scratch_space* scratch
+            = secp256k1_scratch_space_create(ctx, scratch_size);
+
+        [[maybe_unused]] auto ret = secp256k1_bppp_rangeproof_batch_verify(
+            ctx,
+            scratch,
+            &batch
+        );
+
+        if(ret != 1) {
+            return proof_error{proof_error_code::out_of_range};
+        }
+
+        return std::nullopt;
+    }
+
     auto check_proof(const full_tx& tx,
                      const std::vector<commitment_t>& inps)
         -> std::optional<proof_error> {

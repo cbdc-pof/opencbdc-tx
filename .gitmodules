@@ -1,4 +1,4 @@
 [submodule "secp256k1"]
 	path = 3rdparty/secp256k1
 	url = https://github.com/mit-dci/secp256k1-zkp.git
-	branch = bppp-wip
+	branch = feat/aggregated-batch-verification
