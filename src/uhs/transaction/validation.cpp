@@ -347,7 +347,7 @@ namespace cbdc::transaction::validation {
         return std::nullopt;
     }
 
-    auto check_range_batch(const secp256k1_ecmult_multi_batch& batch)
+    auto check_range_batch(secp256k1_ecmult_multi_batch& batch)
         -> std::optional<proof_error> {
 
         auto* ctx = secp_context.get();
