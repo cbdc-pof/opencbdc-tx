@@ -100,7 +100,7 @@ static auto audit(snapshot_map<hash_t, uhs_element>& uhs,
     static constexpr size_t threshold = 100000;
     size_t cursor = 0;
     std::vector<commitment_t> comms{};
-    auto* range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
+    auto* range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), 34 * (threshold + 1));
     auto summarize
         = [&](const snapshot_map<hash_t, uhs_element>& m) {
         for(const auto& [id, elem] : m) {
@@ -131,17 +131,13 @@ static auto audit(snapshot_map<hash_t, uhs_element>& uhs,
             }
             if(cursor >= threshold) {
                 failed = transaction::validation::check_range_batch(*range_batch).has_value();
-                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(secp.get(), range_batch);
-                free(range_batch);
-                range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
+                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(secp.get(), range_batch);
                 cursor = 0;
             }
         }
         if(cursor > 0) {
             failed = transaction::validation::check_range_batch(*range_batch).has_value();
-            [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(secp.get(), range_batch);
-            free(range_batch);
-            range_batch = secp256k1_bppp_rangeproof_batch_create(secp.get(), threshold);
+            [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(secp.get(), range_batch);
             cursor = 0;
         }
     };
@@ -149,6 +145,7 @@ static auto audit(snapshot_map<hash_t, uhs_element>& uhs,
     summarize(uhs);
     summarize(locked);
     summarize(spent);
+    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(secp.get(), range_batch);
     free(range_batch);
 
     secp256k1_scratch_space_destroy(secp.get(), scratch);

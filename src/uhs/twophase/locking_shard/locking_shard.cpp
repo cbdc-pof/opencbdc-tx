@@ -251,7 +251,7 @@ namespace cbdc::locking_shard {
         size_t cursor = 0;
         //std::vector<std::future<std::optional<commitment_t>>> pool{};
         std::vector<commitment_t> comms{};
-        auto* range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), threshold);
+        auto* range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), 34 * (threshold + 1));
         auto summarize
             = [&](const snapshot_map<hash_t, uhs_element>& m) {
             for(const auto& [id, elem] : m) {
@@ -282,9 +282,7 @@ namespace cbdc::locking_shard {
                 }
                 if(cursor >= threshold) {
                     failed = transaction::validation::check_range_batch(*range_batch).has_value();
-                    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(m_secp.get(), range_batch);
-                    free(range_batch);
-                    range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), threshold);
+                    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
                     cursor = 0;
                 }
 //                    return comm;
@@ -314,9 +312,7 @@ namespace cbdc::locking_shard {
             }
             if(cursor > 0) {
                 failed = transaction::validation::check_range_batch(*range_batch).has_value();
-                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(m_secp.get(), range_batch);
-                free(range_batch);
-                range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), threshold);
+                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
                 cursor = 0;
             }
         };
@@ -324,6 +320,7 @@ namespace cbdc::locking_shard {
         summarize(m_uhs);
         summarize(m_locked);
         summarize(m_spent);
+        [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(m_secp.get(), range_batch);
         free(range_batch);
 
 //        if(!failed) {
