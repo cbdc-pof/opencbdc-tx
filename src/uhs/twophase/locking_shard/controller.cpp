@@ -161,7 +161,7 @@ namespace cbdc::locking_shard {
             if(highest_epoch - m_last_audit_epoch
                > m_opts.m_shard_audit_interval) {
                 auto audit_epoch = highest_epoch;
-                if(m_opts.m_shard_audit_interval > 0 && m_last_audit_epoch > 0) {
+                if(m_opts.m_shard_audit_interval > 0) {
                     audit_epoch
                         = (highest_epoch - m_opts.m_shard_audit_interval)
                         - (highest_epoch % m_opts.m_shard_audit_interval);
