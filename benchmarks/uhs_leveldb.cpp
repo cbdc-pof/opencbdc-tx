@@ -149,15 +149,17 @@ static void uhs_leveldb_shard_sim(benchmark::State& state) {
         state.ResumeTiming();
         for(const auto& tx : db.block) {
             for(const auto& out : tx.m_uhs_outputs) {
-                std::array<char, sizeof(out)> out_arr{};
-                std::memcpy(out_arr.data(), out.data(), out.size());
-                leveldb::Slice OutPointKey(out_arr.data(), out.size());
+                auto id = cbdc::transaction::calculate_uhs_id(out.m_data, out.m_value);
+                std::array<char, sizeof(id)> out_arr{};
+                std::memcpy(out_arr.data(), id.data(), id.size());
+                leveldb::Slice OutPointKey(out_arr.data(), id.size());
                 batch.Put(OutPointKey, leveldb::Slice());
             }
             for(const auto& inp : tx.m_inputs) {
+                auto id = cbdc::transaction::calculate_uhs_id(inp.m_data, inp.m_value);
                 std::array<char, sizeof(inp)> inp_arr{};
-                std::memcpy(inp_arr.data(), inp.data(), inp.size());
-                leveldb::Slice OutPointKey(inp_arr.data(), inp.size());
+                std::memcpy(inp_arr.data(), id.data(), id.size());
+                leveldb::Slice OutPointKey(inp_arr.data(), id.size());
                 batch.Delete(OutPointKey);
             }
         }
@@ -177,15 +179,17 @@ static void uhs_leveldb_shard_sim_brief(benchmark::State& state) {
         state.ResumeTiming();
         for(const auto& tx : db.block_abridged) {
             for(const auto& out : tx.m_uhs_outputs) {
-                std::array<char, sizeof(out)> out_arr{};
-                std::memcpy(out_arr.data(), out.data(), out.size());
-                leveldb::Slice OutPointKey(out_arr.data(), out.size());
+                auto id = cbdc::transaction::calculate_uhs_id(out.m_data, out.m_value);
+                std::array<char, sizeof(id)> out_arr{};
+                std::memcpy(out_arr.data(), id.data(), id.size());
+                leveldb::Slice OutPointKey(out_arr.data(), id.size());
                 batch.Put(OutPointKey, leveldb::Slice());
             }
             for(const auto& inp : tx.m_inputs) {
+                auto id = cbdc::transaction::calculate_uhs_id(inp.m_data, inp.m_value);
                 std::array<char, sizeof(inp)> inp_arr{};
-                std::memcpy(inp_arr.data(), inp.data(), inp.size());
-                leveldb::Slice OutPointKey(inp_arr.data(), inp.size());
+                std::memcpy(inp_arr.data(), id.data(), id.size());
+                leveldb::Slice OutPointKey(inp_arr.data(), id.size());
                 batch.Delete(OutPointKey);
             }
         }
