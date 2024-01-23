@@ -1,3 +1,6 @@
+Author: Cyrus Minwalla
+Organization: Bank of Canada
+
 What was explored:
  - opencbdc-tx public channel version (newer than internal at time of investigation)
  - Branch: trunk
@@ -69,5 +72,13 @@ Could the issue of provenance be fixed? It can through one or more technologies.
 - Key management system:
   - The client wallet requires a robust key management system for enrollment, private and secure transaction creation and key lifecycle.
 
+2024-Jan-19
+- Channel security is disabled throughout the system
+  - Even with the perimeter security assumption, the wallet is communicating over the public internet with the sentinel and needs to build a secure channel before submitting a signed transaction
+  - Introducing channel security will have a performance impact, and on that matter, Sam admitted that the reason for leaving it out was performance
+  - The credentials used for building the secure channel will be assigned as part of enrollment (registered or non-registered)
+    - User credentials can be based on Verifiable Credentials or their private sub-set Anonymous Credentials
+  - Secure channels are not required between sentinels and coordinators or coordinators and shards as long as they reside within the same cloud zone (and ideally within the same tenant).
+    - We have to introduce channel security between any components that violate this assumption. This includes sentinel<->sentinel, coordinator<->coordinator and shard<->shard traffic.
 
 
