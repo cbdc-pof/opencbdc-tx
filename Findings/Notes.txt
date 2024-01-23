@@ -1,0 +1,73 @@
+What was explored:
+ - opencbdc-tx public channel version (newer than internal at time of investigation)
+ - Branch: trunk
+ - Commit ID: 3a33f7e0edf1b1896592f1f4cac688c595df7f7a
+ - Date: 2023-Feb-22
+
+
+Tools used:
+ - cppcheck
+ - sourcetrail
+
+
+2023-June-22
+
+- Transactions can only be submitted by clients
+
+- Minting is just another transaction
+  - Checks on minting are missing:
+     - There are no attestations recorded (as inputs are zero-valued, nothing for sentinels to attest or confirm)
+     - Sentinels do not check if the client's key belongs to a list of approved keys
+     - Coordinator does not check anything, blindly adds hashes to the hash Sentinels
+
+  - Security for the minting process is insufficient for a feasible design.
+
+  - Could a secure minting solution be added?
+    1. For a secure solution, minting has to bypass the Sentinel and be submitted directly to the coordinators
+        - Minting operation interface removed from the client API and added to the Coordinator API
+    2. Create dedicated minting wallets, with associated keys stored in an HSM and only accessed with sufficient privileges
+    3. Coordinators reference a list of key(s) for all minting wallets in existence
+    4. Signature verification has to happen inside the HSM
+    5. Each wallet requires dual party authorization i.e. two individual signing keys (or KEKs) unlock a single minting key
+
+- Issuance is not a supported transaction
+   - There is no mechanism to mint without issuance: A minting operation directly results in a creation of funds within a client wallet
+   -
+   - Could a secure issuance solution be added?
+     1. To support dedicated issuance independent of minting, the solution is similar to minting
+     2. Create one or more dedicated issuance wallets (keys)
+     3. Coordinators reference a list of key(s) for all issuing wallets in existence
+     4. Coordinator verifies both input (minting) and output (issuing) keys
+     5. Both signatures are verified inside an HSM
+     6. Issuing keys do not require a dual party authorization. Similarly, minting keys used as input do not require dual party authorization
+
+
+2023-Jun-30
+- Explore the client codebase for key management
+- More broadly, the system may have a big gap in key management
+
+Gaps
+- Key management
+- Onboarding
+- Full path of the funds model, from creation to destruction
+- FI Layer: Sits between the client wallets and the sentinels (Should FIs run sentinels?)
+-
+
+2023-Jul-05
+
+- Provenance: Can only be established through one mechanism, namely checking that the funds are part of the UHS (Unclaimed Hash Set). This sets up a major attack by a rogue employee who could modify the coordinator database and inject funds into the system.
+  - Additionally, the payee has no mechanism to verify funds at the time of transaction. Rather the payee must wait until payment is confirmed by the coordinator. Since the payer and payee transfer tokens through an asynchronous, out-of-band channel, the payee must either confirm settlement with the coordinator, or assumed it's settled until the payee can reach out to the coordinator. This is risky in general, as there should be a local mechanism to confirm funds. Furthermore, this precludes inclusion of any sort of offline functionality in the future.
+  - In a nutshell, only one control exists for provenance: Consult with the coordinator (or watchtower). This violates the security principle of defense in depth.
+
+Could the issue of provenance be fixed? It can through one or more technologies.
+ - Consulting a recorded transaction history at an authoritative source is one mechanism.
+ - Adding digital signatures to tokens is another.
+
+- Access control:
+  - It's not clear what sort of roles and access rights are currently implemented in the system. Is the system completely relying on ACL functionality from the cloud service provider? If so, that is likely insufficient from a CBDC perspective.
+
+- Key management system:
+  - The client wallet requires a robust key management system for enrollment, private and secure transaction creation and key lifecycle.
+
+
+
