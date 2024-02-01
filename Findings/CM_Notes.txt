@@ -134,7 +134,7 @@ Transaction Signatures:
         there is no way to trace a specific address (public key) back to a specific
         wallet. In the event of a fraudulent transaction, it becomes impossible for the trusted authority to trace a transaction back to a specific wallet, and by extension, a specific user. Involving MSBs makes the problem more tractable. If we assume that registered users have no privacy wrt their MSBs, and additionally require MSBs to keep track of transactions, then an MSB can use its data to link a specific transaction to a specific user on behalf of the trusted authority.
       - Ratchet generated keys can allow reconstruction of a specific address, provided the master key used to generate that address is known. Once again, involving MSBs is the primary mechanism, where if an MSB keeps a
-        record of the transaction, and the specific user, the long-lived key (master secret) can be used to reconstruct the address. This is a stronger guarantee than randomly generated keys as there would be a mathematical proof linking a long-lived key to a specific address. Additionally, the trusted authority could keep a copy of all keys and conduct an exhaustive search. It's not clear whether this is computationally feasible in a defined timeframe (requires investigation). In general, this approach may be undesired as the trusted authority would need to keep a copy of all wallet keys, weakening all privacy claims.
+        record of the transaction, and the specific user, the long-lived key (master secret) can be used to reconstruct the address. This is a stronger guarantee than randomly generated keys, since a mathematical proof would link a long-lived key to a specific ephemeral key (public address). To identify the specific wallet, the trusted authority could keep a copy of all keys and conduct an exhaustive search. It's not clear whether this is computationally feasible in a defined timeframe (requires investigation). In general, requiring the trusted authority to keep a copy of all wallet keys would weaken any privacy claims made about the system, hence this would be undesired.
       - A double ratchet mechanism may make it possible for the central bank to derive a ratchet-generated key without having access to the wallet's long-lived key. In this case, for every long-lived key, the central bank would possess a linked key created during provisioning. It is unclear what the implications of this approach would be. This is TBD, requires further research.
       -
 
@@ -148,3 +148,10 @@ Key storage/update/revocation:
 
  - Revocation: K and M wallets can be revoked trivially by the associated MSB (in K, the funds would simply be frozen). U keys will prove to be more challenging, requires more thinking. It is straightforward to blacklist compromised or fraudulent U wallets such that no M wallets can interact with them. K wallets can be blocked from sending but not receiving, requires more thinking.
 **********************************************
+
+31-Jan-2024
+Present the context of the problems to DCI
+
+- Compact tx includes the tx ID. The tx ID is the hash of the sender key | pre-image inputs | pre-image outputs
+- New pre-images are generated randomly [CONFIRM IF THIS IS TRUE]
+
