@@ -149,9 +149,15 @@ Key storage/update/revocation:
  - Revocation: K and M wallets can be revoked trivially by the associated MSB (in K, the funds would simply be frozen). U keys will prove to be more challenging, requires more thinking. It is straightforward to blacklist compromised or fraudulent U wallets such that no M wallets can interact with them. K wallets can be blocked from sending but not receiving, requires more thinking.
 **********************************************
 
-31-Jan-2024
+2024-Jan-31
 Present the context of the problems to DCI
 
 - Compact tx includes the tx ID. The tx ID is the hash of the sender key | pre-image inputs | pre-image outputs
 - New pre-images are generated randomly [CONFIRM IF THIS IS TRUE]
+
+2024-Feb-02
+Meeting with MIT:
+ - One possible failure mode with the inclusion of the tx-archive component is that its update needs to be orchestrated with the RAFT framework to make sure that a settled transaction is not lost if a sentinel dies before the data store is updated. Currently both the sentinels and coordinators are state-less. 
+ - Coordinators store a list of transaction IDs, but they are not linked to hashes (notes). 
+ - The TX archive would work like a replicated shard attached to the Sentinel. When a tx arrives at the sentinel, the shard is updated with an arrival state. Then, once validation checks are done, the shard is updated with a validation state. Then the sentinel submits the transaction to the coordinator. This state change is also recorded in the tx archive. Once the coordinator confirms that the transaction is settled, the final state change is communicated to the archive, building a clear history for a single transaction. In that sense, the tx archive actually acts like a log. 
 
