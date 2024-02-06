@@ -22,6 +22,8 @@
 #include <leveldb/write_batch.h>
 #include <thread>
 
+// busting shard-seeder cache
+
 static constexpr int leveldb_buffer_size
     = 16 * 1024 * 1024; // 16MB can hold ~ 500K UHS_IDs
 static constexpr int write_batch_size
