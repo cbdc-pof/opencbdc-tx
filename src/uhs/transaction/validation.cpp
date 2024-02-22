@@ -390,10 +390,11 @@ namespace cbdc::transaction::validation {
             auto aux = maybe_aux.value();
             out_comms.push_back(aux);
 
-            //auto rng = check_range(proof.m_auxiliary, proof.m_range.value());
-            //if(rng.has_value()) {
-            //    return rng;
-            //}
+            // BoC - uncomment to perform range proof check here
+            auto rng = check_range(proof.m_auxiliary, proof.m_range.value());
+            if(rng.has_value()) {
+                return rng;
+            }
         }
 
         if(!check_commitment_sum(in_comms, out_comms, 0)) {
