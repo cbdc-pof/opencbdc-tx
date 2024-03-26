@@ -1,7 +1,9 @@
 project(sentinel_2pc)
 
 add_library(sentinel_2pc controller.cpp
-                         server.cpp)
+                         server.cpp
+                         tx_db.cpp
+                         tx_history.cpp)
 
 add_executable(sentineld-2pc sentineld_2pc.cpp)
 target_link_libraries(sentineld-2pc sentinel_2pc
