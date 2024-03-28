@@ -1,7 +1,7 @@
 project(tha-reader)
 include_directories(../../src ../../3rdparty ../../3rdparty/secp256k1/include ../../src/uhs/twophase/sentinel_2pc)
 
-add_executable(tha-reader tha-reader ../../src/uhs/twophase/sentinel_2pc/tx_db.cpp  ../../src/uhs/twophase/sentinel_2pc/tx_history.cpp)
+add_executable(tha-reader tha-reader.cpp ../../src/uhs/twophase/sentinel_2pc/tx_db.cpp  ../../src/uhs/twophase/sentinel_2pc/tx_history.cpp)
 target_link_libraries(tha-reader transaction
                                    network
                                    common
