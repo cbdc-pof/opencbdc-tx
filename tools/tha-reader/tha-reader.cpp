@@ -6,7 +6,7 @@
 #include "util/serialization/format.hpp"
 #include "util/serialization/ostream_serializer.hpp"
 #include <benchmark/benchmark.h>
-#include "uhs/twophase/sentinel_2pc/tx_history.hpp"
+#include "uhs/twophase/sentinel_2pc/tx_history_archive/tx_history.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -27,8 +27,11 @@ bool isValidHex(const std::string& str) {
 auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
     shared_ptr<cbdc::logging::log> logger = std::make_shared <cbdc::logging::log>(cbdc::logging::log_level::trace);
     string dbDir("tha_test");
+    cbdc::config::options opts;
     if(argc > 1) dbDir = argv[1];
-    cbdc::sentinel_2pc::tx_history_archiver tha(10, logger, dbDir);
+    opts.tha_type = string("leveldb");
+    opts.tha_parameter = dbDir;
+    cbdc::sentinel_2pc::tx_history_archiver tha(10, opts);
     cbdc::sentinel_2pc::tx_state last_status;
     uint64_t timestamp;
 

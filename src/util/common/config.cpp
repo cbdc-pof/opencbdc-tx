@@ -453,6 +453,13 @@ namespace cbdc::config {
             auto key = hash_from_hex(sentinel_public_key.value());
             opts.m_sentinel_public_keys.insert(key);
         }
+        // Read THA related options
+        opts.tha_type = cfg.get_string(tha_type_name).value_or("leveldb");
+        opts.tha_parameter = cfg.get_string(tha_parameter_name).value_or("./tha_db");
+        opts.tha_port = (uint32_t)cfg.get_ulong(tha_port_name).value_or(0);
+        opts.tha_user = cfg.get_string(tha_user_name).value_or("");
+        opts.tha_password = cfg.get_string(tha_password_name).value_or("");
+
         return std::nullopt;
     }
 

@@ -80,6 +80,11 @@ namespace cbdc::config {
     static constexpr auto atomizer_prefix = "atomizer";
     static constexpr auto sentinel_count_key = "sentinel_count";
     static constexpr auto sentinel_prefix = "sentinel";
+    static constexpr auto tha_type_name = "tha_type";
+    static constexpr auto tha_parameter_name = "tha_parameter";
+    static constexpr auto tha_port_name = "tha_port";
+    static constexpr auto tha_user_name = "tha_user";
+    static constexpr auto tha_password_name = "tha_password";
     static constexpr auto config_separator = "_";
     static constexpr auto db_postfix = "db";
     static constexpr auto start_postfix = "start";
@@ -258,6 +263,13 @@ namespace cbdc::config {
 
         /// Number of sentinel attestations needed for a compact transaction.
         size_t m_attestation_threshold{defaults::attestation_threshold};
+
+        /// Transaction history archive 
+        std::string tha_type  = "";
+        std::string tha_parameter = "";
+        uint32_t    tha_port = 0;
+        std::string tha_user = "";
+        std::string tha_password = "";
     };
 
     /// Read options from the given config file without checking invariants.

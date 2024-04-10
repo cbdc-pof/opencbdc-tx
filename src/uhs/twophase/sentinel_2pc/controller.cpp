@@ -8,7 +8,8 @@
 #include "uhs/twophase/coordinator/format.hpp"
 #include "util/rpc/tcp_server.hpp"
 #include "util/serialization/util.hpp"
-
+#include "tx_history_archive/tx_leveldb.hpp"
+#include "tx_history_archive/tx_keyspacesdb.hpp"
 #include <utility>
 
 namespace cbdc::sentinel_2pc {
@@ -18,6 +19,7 @@ namespace cbdc::sentinel_2pc {
         : m_sentinel_id(sentinel_id),
           m_opts(opts),
           m_logger(std::move(logger)),
+          m_tha(sentinel_id, opts),
           m_coordinator_client(
               opts.m_coordinator_endpoints[sentinel_id
                                            % static_cast<uint32_t>(
@@ -98,11 +100,14 @@ namespace cbdc::sentinel_2pc {
     auto controller::execute_transaction(
         transaction::full_tx tx,
         execute_result_callback_type result_callback) -> bool {
+        auto tx_id = transaction::tx_id(tx);
+
+        m_logger->trace("Tx status set to initial", to_string(tx_id));
+        m_tha.add_transaction(tx);
         const auto validation_err = transaction::validation::check_tx(tx);
         if(validation_err.has_value()) {
-            auto tx_id = transaction::tx_id(tx);
             m_logger->debug(
-                "Rejected (",
+                "Rejected, validation_failed status (",
                 transaction::validation::to_string(validation_err.value()),
                 ")",
                 to_string(tx_id));
@@ -126,16 +131,31 @@ namespace cbdc::sentinel_2pc {
 
     void
     controller::result_handler(std::optional<bool> res,
-                               const execute_result_callback_type& res_cb) {
+                               const execute_result_callback_type& res_cb,
+                               hash_t ctx_id,
+                               controller* ctrlInst) {
         if(res.has_value()) {
             auto resp = cbdc::sentinel::execute_response{
                 cbdc::sentinel::tx_status::confirmed,
                 std::nullopt};
             if(!res.value()) {
                 resp.m_tx_status = cbdc::sentinel::tx_status::state_invalid;
+                if(ctrlInst) {
+                    ctrlInst->m_tha.set_status(ctx_id, tx_state::execution_failed);
+                    ctrlInst->m_logger->error("Execution failed tx", to_string(ctx_id));
+                }
+            }
+            else 
+            if(ctrlInst) {
+                    ctrlInst->m_tha.set_status(ctx_id, tx_state::completed);
+                    ctrlInst->m_logger->trace("Completed tx", to_string(ctx_id));
             }
             res_cb(resp);
         } else {
+            if(ctrlInst) {
+                ctrlInst->m_tha.set_status(ctx_id, tx_state::unknown);
+                ctrlInst->m_logger->trace("Unknown status for tx", to_string(ctx_id));
+            }
             res_cb(std::nullopt);
         }
     }
@@ -144,8 +164,10 @@ namespace cbdc::sentinel_2pc {
         transaction::full_tx tx,
         validate_result_callback_type result_callback) -> bool {
         const auto validation_err = transaction::validation::check_tx(tx);
+        auto tx_id = transaction::tx_id(tx);
         if(validation_err.has_value()) {
             result_callback(std::nullopt);
+            m_logger->debug("Tx status: validation_failed", to_string(tx_id));            
             return true;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
@@ -162,7 +184,7 @@ namespace cbdc::sentinel_2pc {
         std::unordered_set<size_t> requested) {
         if(!v_res.has_value()) {
             m_logger->error(to_string(ctx.m_id),
-                            "invalid according to remote sentinel");
+                            "invalid (Tx status: validation_failed) according to remote sentinel");
             result_callback(std::nullopt);
             return;
         }
@@ -201,8 +223,8 @@ namespace cbdc::sentinel_2pc {
             return;
         }
 
-        m_logger->debug("Accepted", to_string(ctx.m_id));
-
+        m_logger->debug("Accepted (tx status: validated)", to_string(ctx.m_id));
+        m_tha.set_status(ctx.m_id, tx_state::validated);
         send_compact_tx(ctx, std::move(result_callback));
     }
 
@@ -210,8 +232,8 @@ namespace cbdc::sentinel_2pc {
     controller::send_compact_tx(const transaction::compact_tx& ctx,
                                 execute_result_callback_type result_callback) {
         auto cb =
-            [&, res_cb = std::move(result_callback)](std::optional<bool> res) {
-                result_handler(res, res_cb);
+            [&, res_cb = std::move(result_callback), ctx_id = ctx.m_id](std::optional<bool> res) {
+                result_handler(res, res_cb, ctx_id, this);
             };
 
         // TODO: add a "retry" error response to offload sentinels from this
@@ -224,5 +246,7 @@ namespace cbdc::sentinel_2pc {
             static constexpr auto retry_delay = std::chrono::milliseconds(100);
             std::this_thread::sleep_for(retry_delay);
         };
+        m_logger->trace("Tx status: execution", to_string(ctx.m_id));
+        m_tha.set_status(ctx.m_id, tx_state::execution);
     }
 }

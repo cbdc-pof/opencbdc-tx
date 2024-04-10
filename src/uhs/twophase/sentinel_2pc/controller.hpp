@@ -16,6 +16,7 @@
 #include "util/common/config.hpp"
 #include "util/common/hashmap.hpp"
 #include "util/network/connection_manager.hpp"
+#include "tx_history_archive/tx_history.hpp"
 
 #include <random>
 
@@ -68,7 +69,9 @@ namespace cbdc::sentinel_2pc {
 
       private:
         static void result_handler(std::optional<bool> res,
-                                   const execute_result_callback_type& res_cb);
+                                   const execute_result_callback_type& res_cb,
+                                   hash_t ctx_id,  
+                                   controller* ctrl);
 
         void
         validate_result_handler(validate_result v_res,
@@ -88,6 +91,7 @@ namespace cbdc::sentinel_2pc {
         uint32_t m_sentinel_id;
         cbdc::config::options m_opts;
         std::shared_ptr<logging::log> m_logger;
+        tx_history_archiver m_tha; 
 
         std::unique_ptr<cbdc::sentinel::rpc::async_server> m_rpc_server;
 
