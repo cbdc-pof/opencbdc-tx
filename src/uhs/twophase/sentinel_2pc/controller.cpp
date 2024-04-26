@@ -167,7 +167,8 @@ namespace cbdc::sentinel_2pc {
         auto tx_id = transaction::tx_id(tx);
         if(validation_err.has_value()) {
             result_callback(std::nullopt);
-            m_logger->debug("Tx status: validation_failed", to_string(tx_id));            
+            m_logger->debug("Tx status: validation_failed", to_string(tx_id));
+	    m_tha.set_status(tx_id, tx_state::validation_failed);
             return true;
         }
         auto compact_tx = cbdc::transaction::compact_tx(tx);
@@ -185,6 +186,7 @@ namespace cbdc::sentinel_2pc {
         if(!v_res.has_value()) {
             m_logger->error(to_string(ctx.m_id),
                             "invalid (Tx status: validation_failed) according to remote sentinel");
+	    m_tha.set_status(ctx.m_id, tx_state::validation_failed);
             result_callback(std::nullopt);
             return;
         }
