@@ -28,6 +28,7 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
     shared_ptr<cbdc::logging::log> logger = std::make_shared <cbdc::logging::log>(cbdc::logging::log_level::trace);
     string dbDir("tha_test");
     cbdc::config::options opts;
+    opts.m_sentinel_loglevels.push_back(cbdc::logging::log_level::trace);
     if(argc > 1) dbDir = argv[1];
     opts.tha_type = string("leveldb");
     opts.tha_parameter = dbDir;
