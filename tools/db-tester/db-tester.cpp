@@ -2,7 +2,6 @@
 //                    Federal Reserve Bank of Boston
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-// Test 1
 
 #include "uhs/transaction/transaction.hpp"
 #include "uhs/transaction/validation.hpp"
@@ -31,26 +30,27 @@ static constexpr auto g_shard_test_dir = "test_shard_db";
 bool visualize = false;
 uint64_t total_db_container_msec = 0;
 int total_tha_calls = 0;
+int errors_number = 0;
+const int sentinel_id = 0;
+cbdc::config::options opts;
 
 class TestTimer
 {
     public:
     TestTimer(const string& method) : m_active(true), m_method(method) {
         m_start = high_resolution_clock::now();
+        errors_number = total_tha_calls = 0;
     }
 
     void resetTimer() {
                 m_start = high_resolution_clock::now();
     }
 
-    void summarize(const string& outMsg = "") {
+    void summarize() {
         auto duration = duration_cast<milliseconds>(high_resolution_clock::now() - m_start);
         cout << "Method " << m_method << " took " << duration.count() << " milliseconds to execute.";
-        if(m_method == "db_container") {
-            total_db_container_msec += duration.count();
-            cout << " Total: " << total_db_container_msec << "msecs. # of saved TXs: " << total_tha_calls;
-        }
-        cout << (outMsg.empty() ? "" : " Message: ") << outMsg << endl;
+        total_db_container_msec += duration.count();
+        cout << " Total: " << total_db_container_msec << "msecs. # of THA calls: " << total_tha_calls << " # of errors: " << errors_number << endl;
         m_active = false;
     }
 
@@ -89,17 +89,12 @@ struct db_container {
     leveldb::Status res;
 
     // Add transaction to THA 
-    void process_tx(cbdc::sentinel_2pc::tx_history_archiver& tha) {
+    void process_tx() {
 
         wallet1.confirm_transaction(m_valid_tx);
         wallet2.confirm_transaction(m_valid_tx);
         full_block.push_back(m_valid_tx);
         block.push_back(cbdc::transaction::compact_tx(m_valid_tx));
-
-        if(!tha.add_transaction(m_valid_tx)) cout << "Failure on attempt to add transaction"; 
-        else { 
-            ++total_tha_calls;
-        }
     }
 
     // default constructor
@@ -107,15 +102,8 @@ struct db_container {
     // do, while permitting benchmark modificaitons
     db_container() {
         opt.create_if_missing = true;
-        TestTimer tt("db_container"); 
         auto mint_tx1 = wallet1.mint_new_coins(2, 100);
         auto mint_tx2 = wallet2.mint_new_coins(1, 100);
-        shared_ptr<cbdc::logging::log> logger = std::make_shared <cbdc::logging::log>(cbdc::logging::log_level::warn);
-        cbdc::config::options opts;
-        opts.tha_type = std::string("leveldb");
-        opts.tha_parameter = std::string("./tha_db");
-
-        cbdc::sentinel_2pc::tx_history_archiver tha(1, opts);
 
         wallet1.confirm_transaction(mint_tx1);
         wallet2.confirm_transaction(mint_tx2);
@@ -134,15 +122,15 @@ struct db_container {
         for(int i = 0; i < 10; i++) {
             m_valid_tx
                 = wallet1.send_to(100, wallet2.generate_key(), true).value();
-            process_tx(tha);
+            process_tx();
 
             m_valid_tx
                 = wallet2.send_to(50, wallet1.generate_key(), true).value();
-            process_tx(tha);
+            process_tx();
 
             m_valid_tx
                 = wallet2.send_to(50, wallet1.generate_key(), true).value();
-            process_tx(tha);
+            process_tx();
         }
     }
 
@@ -153,35 +141,88 @@ struct db_container {
 
 // Test THA 
 static void test_tx_history_archive(benchmark::State& state) {
-
+    opts.m_sentinel_loglevels.push_back(visualize ? cbdc::logging::log_level::trace : cbdc::logging::log_level::warn);
     auto db = db_container();
-    shared_ptr<cbdc::logging::log> logger = std::make_shared <cbdc::logging::log>(cbdc::logging::log_level::warn);
-    cbdc::config::options opts;
+    opts.m_sentinel_loglevels[sentinel_id] = cbdc::logging::log_level::warn;
     opts.tha_type = string("leveldb");
     opts.tha_parameter = std::string("./tha_db");
-    cbdc::sentinel_2pc::tx_history_archiver tha(1, opts);
+    cbdc::sentinel_2pc::tx_history_archiver tha(sentinel_id, opts);
+    cbdc::sentinel_2pc::tx_state statuses[100000];
 
     TestTimer tt("test_tx_history_archive");
     
     for(auto _: state ) {
+        int i = 0;
         for(auto tx: db.full_block) {
-            if(!tha.add_transaction(tx)) cout << "Failure on attempt to ";
             auto status = (cbdc::sentinel_2pc::tx_state)(rand() % 7);
-            if(visualize) cout << "Add transaction: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
+
+            if(!tha.add_transaction(tx)) {
+                cout << "Failure on attempt to add transaction: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
+                ++errors_number;
+            }
+            else if(visualize) cout << "Add transaction: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
+
             cbdc::hash_t  txId = tx_id(tx);
-            if(!tha.set_status(txId, status)) cout << "Failure on attempt to ";
-            cout << "Set status: " << (int)status << " to TX " << cbdc::to_string(txId) << endl;
+            if(!tha.set_status(txId, status)) {
+                cout << "Failure on attempt to set status: " << (int)status << " to TX " << cbdc::to_string(txId) << endl;
+                ++errors_number;
+            }
+            statuses[i++] = status;
+            total_tha_calls += 2;
         }
 
+        i = 0;
         for(auto tx: db.full_block) {
             cbdc::hash_t txId = cbdc::transaction::tx_id(tx);
             cbdc::sentinel_2pc::tx_state last_status;
             cbdc::transaction::full_tx readTx;
             uint64_t timestamp;
 
+            // Read newly added records and their statuses
             if(tha.get_transaction_by_hash(txId, last_status, readTx, timestamp)) {
-                cout << "Successfully read TX: " << cbdc::to_string(txId) << " with status " << (int)last_status << endl;
-                if(visualize) cout << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, last_status, timestamp) << endl;
+                if(visualize) cout << "Successfully read TX: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, last_status, timestamp) << endl;
+            }
+            else {
+                cout << "Cannot read TX: "<< endl;
+                ++errors_number;
+            }
+
+            // Statuses should match
+            if(last_status != statuses[i++]) {
+                cout << "Wrong status" << (int)last_status << " while expected " << (int)statuses[i - 1] << endl;
+                ++errors_number;
+            }
+
+            // Delete the record and its' statuses
+            int deletedRec = tha.delete_transaction_by_hash(txId);
+            if(deletedRec > 0) {
+                if(visualize) cout << "Successfully deleted " << deletedRec << " records" << endl;
+            }
+            else {
+                cout << "Cannot delete TX "<< endl;
+                ++errors_number;
+            }
+
+            total_tha_calls += 2;
+
+            // Negative scenarios:. 
+            // Try to read deleted record. Should fail.
+            if(tha.get_transaction_by_hash(txId, last_status, readTx, timestamp) == 0) {
+                if(visualize) cout << "As expected: cannot read deleted TX" << endl;
+            }
+            else {
+                cout << "Error: can read deleted TX"<< endl;
+                ++errors_number;
+            }
+
+            // Delete an absent record and its' statuses. Should fail.
+            deletedRec = tha.delete_transaction_by_hash(txId);
+            if(deletedRec == 0) {
+                if(visualize) cout << "As expected: cannot delete an absent record " << endl;
+            }
+            else {
+                cout << "Error: can delete an absent TX ";
+                ++errors_number;
             }
         }
     }

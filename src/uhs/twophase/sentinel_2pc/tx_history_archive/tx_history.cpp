@@ -17,7 +17,7 @@ auto getMSSinceEpoch() -> uint64_t {
 // Construct tx_history_archiver and create/connect to DB in case initialize parameter is true
 tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
                   const config::options& opts) : m_sentinel_id(sentinel_id) {
-    m_logger = std::make_shared<cbdc::logging::log>(cbdc::logging::log_level::trace);
+    m_logger = std::make_shared<cbdc::logging::log>(opts.m_sentinel_loglevels[sentinel_id]);
 
     m_logger->info("THA config: Type:", opts.tha_type, "Parameter: ", opts.tha_parameter, "Port:", opts.tha_port,
         "User:", opts.tha_user, "Password:", opts.tha_password);
