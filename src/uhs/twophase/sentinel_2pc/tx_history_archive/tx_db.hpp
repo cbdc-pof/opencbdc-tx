@@ -30,7 +30,7 @@ public:
     virtual bool isOk() = 0;
 
     // Factory method to create a DBHandler instance based on configuration
-    static std::unique_ptr<DBHandler> createDBHandler(const std::string& dbType, const std::string& dbParam, std::shared_ptr<logging::log> logger);
+    static std::unique_ptr<DBHandler> createDBHandler(const std::string& dbType, const std::string& dbParam, std::shared_ptr<logging::log> logger, uint32_t sentinel_id);
 };
 
 }

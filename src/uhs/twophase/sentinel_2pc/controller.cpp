@@ -50,7 +50,7 @@ namespace cbdc::sentinel_2pc {
             auto pubkey = pubkey_from_privkey(m_privkey, m_secp.get());
             m_logger->info("Sentinel public key:", cbdc::to_string(pubkey));
         }
-
+        m_logger->info("Attestation threshold: ", m_opts.m_attestation_threshold);
         auto retry_delay = std::chrono::seconds(1);
         auto retry_threshold = 4;
         while(!m_coordinator_client.init() && retry_threshold-- > 0) {
@@ -114,6 +114,7 @@ namespace cbdc::sentinel_2pc {
             result_callback(cbdc::sentinel::execute_response{
                 cbdc::sentinel::tx_status::static_invalid,
                 validation_err});
+            m_tha.set_status(tx_id, tx_state::validation_failed);
             return true;
         }
 
@@ -141,20 +142,20 @@ namespace cbdc::sentinel_2pc {
             if(!res.value()) {
                 resp.m_tx_status = cbdc::sentinel::tx_status::state_invalid;
                 if(ctrlInst) {
-                    ctrlInst->m_tha.set_status(ctx_id, tx_state::execution_failed);
                     ctrlInst->m_logger->error("Execution failed tx", to_string(ctx_id));
+                    ctrlInst->m_tha.set_status(ctx_id, tx_state::execution_failed);
                 }
             }
             else 
             if(ctrlInst) {
+                    ctrlInst->m_logger->debug("Completed tx", to_string(ctx_id));
                     ctrlInst->m_tha.set_status(ctx_id, tx_state::completed);
-                    ctrlInst->m_logger->trace("Completed tx", to_string(ctx_id));
             }
             res_cb(resp);
         } else {
             if(ctrlInst) {
+                ctrlInst->m_logger->warn("Unknown status for tx", to_string(ctx_id));
                 ctrlInst->m_tha.set_status(ctx_id, tx_state::unknown);
-                ctrlInst->m_logger->trace("Unknown status for tx", to_string(ctx_id));
             }
             res_cb(std::nullopt);
         }
@@ -167,10 +168,10 @@ namespace cbdc::sentinel_2pc {
         auto tx_id = transaction::tx_id(tx);
         if(validation_err.has_value()) {
             result_callback(std::nullopt);
-            m_logger->debug("Tx status: validation_failed", to_string(tx_id));
-	    m_tha.set_status(tx_id, tx_state::validation_failed);
+            m_logger->debug("Failed TX ", to_string(tx_id), " attestation requested by remote sentinel");            
             return true;
         }
+        m_logger->trace("Attested TX", to_string(tx_id), " requested by remote sentinel");            
         auto compact_tx = cbdc::transaction::compact_tx(tx);
         auto attestation = compact_tx.sign(m_secp.get(), m_privkey);
         result_callback(std::move(attestation));
@@ -186,10 +187,11 @@ namespace cbdc::sentinel_2pc {
         if(!v_res.has_value()) {
             m_logger->error(to_string(ctx.m_id),
                             "invalid (Tx status: validation_failed) according to remote sentinel");
-	    m_tha.set_status(ctx.m_id, tx_state::validation_failed);
+            m_tha.set_status(ctx.m_id, tx_state::validation_failed);
             result_callback(std::nullopt);
             return;
         }
+        m_logger->trace("Got positive attestation from remote sentinel for TX", to_string(transaction::tx_id(tx)));                        
         ctx.m_attestations.insert(std::move(v_res.value()));
         gather_attestations(tx,
                             std::move(result_callback),
@@ -225,7 +227,7 @@ namespace cbdc::sentinel_2pc {
             return;
         }
 
-        m_logger->debug("Accepted (tx status: validated)", to_string(ctx.m_id));
+        m_logger->debug("Accepted (tx status: validated)", to_string(ctx.m_id), " gathered ", ctx.m_attestations.size(), " attestations");
         m_tha.set_status(ctx.m_id, tx_state::validated);
         send_compact_tx(ctx, std::move(result_callback));
     }

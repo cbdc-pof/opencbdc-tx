@@ -12,7 +12,7 @@ LevelDBHandler::LevelDBHandler(const string& dbPath, shared_ptr<logging::log> lo
     m_opt.create_if_missing = true;
     Status status = DB::Open(m_opt, dbPath, &m_db);
     if (!status.ok()) {
-        m_logger->error("Failed to open LevelDB database: " + status.ToString());
+        m_logger->error("Failed to open LevelDB database with path: ", dbPath, " error:", status.ToString());
     }
     else {
         m_isOk = true;

@@ -27,7 +27,7 @@ tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
         return;
     }
 
-    m_db = DBHandler::createDBHandler(opts.tha_type, opts.tha_parameter, m_logger);
+    m_db = DBHandler::createDBHandler(opts.tha_type, opts.tha_parameter, m_logger, sentinel_id);
 ///    m_db = DBHandler::createDBHandler(string("Keyspaces"), string("cassandra.us-east-1.amazonaws.com"), logger);
     m_logger->info("Initialize THA with sentinelId", std::to_string(sentinel_id), "Create TxHistory DB in folder", opts.tha_parameter.c_str());
 }
@@ -36,7 +36,7 @@ tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
 auto tx_history_archiver::init(uint32_t sentinel_id, const std::string& db_param) -> bool {
     if(m_sentinel_id == INVALID_SENTINEL_ID) {
         m_logger->info("Create TxHistory DB in folder", db_param.c_str());
-        m_db = DBHandler::createDBHandler(string("leveldb"), db_param, m_logger);
+        m_db = DBHandler::createDBHandler(string("leveldb"), db_param, m_logger, sentinel_id);
     }
     m_sentinel_id = sentinel_id;
     return (m_db && m_db->isOk());
