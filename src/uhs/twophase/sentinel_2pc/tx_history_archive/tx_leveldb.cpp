@@ -21,6 +21,7 @@ LevelDBHandler::LevelDBHandler(const string& dbPath, shared_ptr<logging::log> lo
 }
 
 LevelDBHandler::~LevelDBHandler() {
+    countRecords();
     if(m_logger) m_logger.reset();
     if(m_db && m_isOk) delete m_db;
 }
@@ -81,3 +82,15 @@ unsigned int LevelDBHandler::deleteRecByPrefix(const std::string& prefix) {
     return ret;
 }
 
+unsigned int LevelDBHandler::countRecords() {
+    if(!isOk()) return 0;
+
+    leveldb::Iterator* it = m_db->NewIterator(leveldb::ReadOptions());
+    unsigned int recordCount = 0;
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        recordCount++;
+    }
+    delete it;
+    m_logger->info("Number of records in this LevelDB instance: ", recordCount);
+    return recordCount;
+}

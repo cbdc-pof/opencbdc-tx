@@ -17,15 +17,16 @@ auto getMSSinceEpoch() -> uint64_t {
 // Construct tx_history_archiver and create/connect to DB in case initialize parameter is true
 tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
                   const config::options& opts) : m_sentinel_id(sentinel_id) {
-    m_logger = std::make_shared<cbdc::logging::log>(opts.m_sentinel_loglevels[sentinel_id]);
 
-    m_logger->info("THA config: Type:", opts.tha_type, "Parameter: ", opts.tha_parameter, "Port:", opts.tha_port,
-        "User:", opts.tha_user, "Password:", opts.tha_password);
-
-    if(opts.tha_type.empty()) {
+    uint32_t loglevels_size = (uint32_t)opts.m_sentinel_loglevels.size(); 
+    if(opts.tha_type.empty() || (loglevels_size == 0)) {
         m_sentinel_id = INVALID_SENTINEL_ID;
         return;
     }
+
+    m_logger = std::make_shared<cbdc::logging::log>(opts.m_sentinel_loglevels[min(sentinel_id, loglevels_size - 1)]);
+    m_logger->info("THA config: Type:", opts.tha_type, "Parameter: ", opts.tha_parameter, "Port:", opts.tha_port,
+        "User:", opts.tha_user, "Password:", opts.tha_password);
 
     m_db = DBHandler::createDBHandler(opts.tha_type, opts.tha_parameter, m_logger, sentinel_id);
 ///    m_db = DBHandler::createDBHandler(string("Keyspaces"), string("cassandra.us-east-1.amazonaws.com"), logger);

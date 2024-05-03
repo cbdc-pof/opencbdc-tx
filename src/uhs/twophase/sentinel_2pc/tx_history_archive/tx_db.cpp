@@ -18,7 +18,8 @@ unique_ptr<DBHandler> DBHandler::createDBHandler(const string& dbType,
     }
     else {  /// LevelDB is default
         stringstream ss;
-        ss << db_param << "_" << sentinel_id;
+        ss << db_param;
+        if(sentinel_id <= INVALID_SENTINEL_ID) ss << "_" << sentinel_id;
         return make_unique<LevelDBHandler>(ss.str(), logger);
     }
 }

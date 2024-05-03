@@ -10,10 +10,9 @@ target_link_libraries(tha-reader transaction
                                    network
                                    common
                                    serialization
-                                   crypto
-                                   benchmark::benchmark
                                    util
                                    secp256k1
+                                   crypto
                                    ${LEVELDB_LIBRARY}
                                    ${CMAKE_THREAD_LIBS_INIT}
                                    ${CASS_LIBRARY})

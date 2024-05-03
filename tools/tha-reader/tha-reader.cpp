@@ -5,11 +5,9 @@
 #include "util/serialization/buffer_serializer.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/ostream_serializer.hpp"
-#include <benchmark/benchmark.h>
 #include "uhs/twophase/sentinel_2pc/tx_history_archive/tx_history.hpp"
 
 #include <filesystem>
-#include <gtest/gtest.h>
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 #include <vector>
@@ -32,7 +30,7 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
     if(argc > 1) dbDir = argv[1];
     opts.tha_type = string("leveldb");
     opts.tha_parameter = dbDir;
-    cbdc::sentinel_2pc::tx_history_archiver tha(10, opts);
+    cbdc::sentinel_2pc::tx_history_archiver tha(cbdc::sentinel_2pc::INVALID_SENTINEL_ID + 1, opts);
     cbdc::sentinel_2pc::tx_state last_status;
     uint64_t timestamp;
 
@@ -67,7 +65,6 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
                 else if((command == "d") && (tha.delete_transaction(txid))) {
                     cout << "Transaction deleted." << endl;
                 }
-
                 else {
                     cout << "Transaction with ID " << txid << " not found" << endl;
                 }
@@ -75,7 +72,11 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
 
             }
         }
-        cout << "Enter valid command (d for delete, p for print) followed by hexadecimal transaction Id" << std::endl;
+        else if(tokens[0] == "q") {
+            cout << "Exit" << endl;
+            exit(0);
+        }
+        cout << "Enter valid command (d for delete, p for print, q for quit) followed by hexadecimal transaction Id" << std::endl;
 
     }
 

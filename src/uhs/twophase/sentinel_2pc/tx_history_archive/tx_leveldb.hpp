@@ -28,6 +28,9 @@ public:
     virtual bool isOk() { return m_isOk; }
 
 private:
+    // For internal use: count total number of records in the DB
+    unsigned int countRecords();
+
     leveldb::DB* m_db;
     leveldb::Options m_opt;
     leveldb::WriteOptions m_write_opt;
