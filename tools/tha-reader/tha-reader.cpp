@@ -22,14 +22,36 @@ bool isValidHex(const std::string& str) {
     });
 }
 
-auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
+auto main(int argc, char** argv) -> int {
     shared_ptr<cbdc::logging::log> logger = std::make_shared <cbdc::logging::log>(cbdc::logging::log_level::trace);
+
+    auto args = cbdc::config::get_args(argc, argv);
+    if(args.size() < 2) {
+        std::cerr << "Usage: " << args[0] << " <config file>"
+                  << std::endl;
+        return -1;
+    }
+
+    auto cfg_or_err = cbdc::config::load_options(args[1]);
+    if(std::holds_alternative<std::string>(cfg_or_err)) {
+        std::cerr << "Error loading config file: " << std::get<std::string>(cfg_or_err) << std::endl;
+        return -1;
+    }
+    auto opts = std::get<cbdc::config::options>(cfg_or_err);
+/*
     string dbDir("tha_test");
     cbdc::config::options opts;
     opts.m_sentinel_loglevels.push_back(cbdc::logging::log_level::trace);
     if(argc > 1) dbDir = argv[1];
     opts.tha_type = string("leveldb");
     opts.tha_parameter = dbDir;
+
+    opts.tha_type = "Keyspaces";
+    opts.tha_parameter = "localhost";
+    opts.tha_port = 9042;
+    opts.tha_user = "cassandra";
+    opts.tha_password = "cassandra";
+*/
     cbdc::sentinel_2pc::tx_history_archiver tha(cbdc::sentinel_2pc::INVALID_SENTINEL_ID + 1, opts);
     cbdc::sentinel_2pc::tx_state last_status;
     uint64_t timestamp;
@@ -72,12 +94,11 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
 
             }
         }
-        else if(tokens[0] == "q") {
+        else if(!tokens.empty() && (tokens[0] == "q")) {
             cout << "Exit" << endl;
             exit(0);
         }
-        cout << "Enter valid command (d for delete, p for print, q for quit) followed by hexadecimal transaction Id" << std::endl;
-
+        cout << "Enter valid command: q for quit or d (delete), p (print) followed by hexadecimal transaction Id" << std::endl;
     }
 
     return 0;

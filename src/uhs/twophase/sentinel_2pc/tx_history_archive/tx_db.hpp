@@ -1,6 +1,7 @@
 #ifndef OPENCBDC_TX_SRC_SENTINEL_2PC_TX_DB_H_
 #define OPENCBDC_TX_SRC_SENTINEL_2PC_TX_DB_H_
 
+#include "tx_history.hpp"
 #include "util/common/config.hpp"
 #include <string>
 
@@ -30,7 +31,7 @@ public:
     virtual bool isOk() = 0;
 
     // Factory method to create a DBHandler instance based on configuration
-    static std::unique_ptr<DBHandler> createDBHandler(const std::string& dbType, const std::string& dbParam, std::shared_ptr<logging::log> logger, uint32_t sentinel_id);
+    static std::unique_ptr<DBHandler> createDBHandler(const config::options& opts, std::shared_ptr<logging::log> logger, uint32_t sentinel_id);
 };
 
 }

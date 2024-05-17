@@ -1,6 +1,6 @@
 project(integration)
 
-add_executable(run_integration_tests smart_contract_atomic_commit_test.cpp
+add_executable(run_integration_tests 
                                      mock_system.cpp
                                      atomizer_raft_integration_test.cpp
                                      atomizer_end_to_end_test.cpp
@@ -31,8 +31,8 @@ target_link_libraries(run_integration_tests ${GTEST_LIBRARY}
                                             watchtower
                                             coordinator
                                             locking_shard
-                                            evm_runner
                                             lua_runner
+                                            evm_runner
                                             ticket_machine
                                             runtime_locking_shard
                                             runners
@@ -48,10 +48,11 @@ target_link_libraries(run_integration_tests ${GTEST_LIBRARY}
                                             serialization
                                             crypto
                                             secp256k1
+                                            ${LUA_LIBRARY}
                                             ${LEVELDB_LIBRARY}
                                             ${NURAFT_LIBRARY}
                                             ${JSON_LIBRARY}
-                                            ${LUA_LIBRARY}
                                             ${CURL_LIBRARY}
                                             ${MHD_LIBRARY}
-                                            ${CMAKE_THREAD_LIBS_INIT})
+                                            ${CMAKE_THREAD_LIBS_INIT}
+                                            ${CASS_LIBRARY})

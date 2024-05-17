@@ -9,7 +9,7 @@ namespace cbdc::sentinel_2pc {
 // LevelDB implementation of DBHandler class
 class LevelDBHandler : public cbdc::sentinel_2pc::DBHandler {
 public:
-    LevelDBHandler(const std::string& dbPath, std::shared_ptr<logging::log> logger);
+    LevelDBHandler(const config::options& opts, std::shared_ptr<logging::log> logger, uint32_t sentinelId);
     virtual ~LevelDBHandler();
 
     // Write a record to the database

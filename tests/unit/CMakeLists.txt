@@ -68,4 +68,5 @@ target_link_libraries(run_unit_tests ${GTEST_LIBRARY}
                                      ${NURAFT_LIBRARY}
                                      ${JSON_LIBRARY}
                                      ${LUA_LIBRARY}
-                                     ${CMAKE_THREAD_LIBS_INIT})
+                                     ${CMAKE_THREAD_LIBS_INIT}
+                                     ${CASS_LIBRARY})

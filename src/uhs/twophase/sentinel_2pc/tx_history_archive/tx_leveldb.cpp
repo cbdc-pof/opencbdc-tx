@@ -7,7 +7,17 @@ using namespace std;
 using namespace cbdc::sentinel_2pc;
 
 // LevelDBHandler class implementation
-LevelDBHandler::LevelDBHandler(const string& dbPath, shared_ptr<logging::log> logger) : m_logger(logger) {
+LevelDBHandler::LevelDBHandler(const config::options& opts, shared_ptr<logging::log> logger, uint32_t sentinelId) : m_logger(logger) {
+    if(sentinelId == INVALID_SENTINEL_ID) {
+        m_isOk = false;
+        return;
+    }
+    
+    stringstream ss;
+    ss << opts.tha_parameter;
+    if(sentinelId <= INVALID_SENTINEL_ID) ss << "_" << sentinelId;
+    string dbPath = ss.str();
+    
     // Open the LevelDB database
     m_opt.create_if_missing = true;
     Status status = DB::Open(m_opt, dbPath, &m_db);

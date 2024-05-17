@@ -8,15 +8,14 @@
 
 namespace cbdc::sentinel_2pc {
 
-const std::string tx_table_name ("txs");
+const std::string tx_table_name ("bocopencbdc.txs");
 const std::string tx_key_column_name ("tx_key");
-const std::string tx_prefix_column_name ("key_prefix");
 const std::string tx_data_column_name ("tx");
 
 // Keyspaces implementation of DBHandler class
 class KeyspacesDBHandler : public DBHandler {
 public:
-    KeyspacesDBHandler(const std::string& dbPath, std::shared_ptr<logging::log> logger);
+    KeyspacesDBHandler(const config::options& opts, std::shared_ptr<logging::log> logger, uint32_t sentinelId);
     virtual ~KeyspacesDBHandler();
 
     // Write a record to the database

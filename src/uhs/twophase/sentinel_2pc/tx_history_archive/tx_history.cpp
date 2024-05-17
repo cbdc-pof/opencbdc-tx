@@ -28,21 +28,9 @@ tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
     m_logger->info("THA config: Type:", opts.tha_type, "Parameter: ", opts.tha_parameter, "Port:", opts.tha_port,
         "User:", opts.tha_user, "Password:", opts.tha_password);
 
-    m_db = DBHandler::createDBHandler(opts.tha_type, opts.tha_parameter, m_logger, sentinel_id);
-///    m_db = DBHandler::createDBHandler(string("Keyspaces"), string("cassandra.us-east-1.amazonaws.com"), logger);
+    m_db = DBHandler::createDBHandler(opts, m_logger, sentinel_id);
     m_logger->info("Initialize THA with sentinelId", std::to_string(sentinel_id), "Create TxHistory DB in folder", opts.tha_parameter.c_str());
 }
-
-// Initialize tx_history_archiver if it intentionally was not initialized in the constructor
-auto tx_history_archiver::init(uint32_t sentinel_id, const std::string& db_param) -> bool {
-    if(m_sentinel_id == INVALID_SENTINEL_ID) {
-        m_logger->info("Create TxHistory DB in folder", db_param.c_str());
-        m_db = DBHandler::createDBHandler(string("leveldb"), db_param, m_logger, sentinel_id);
-    }
-    m_sentinel_id = sentinel_id;
-    return (m_db && m_db->isOk());
-}
-
 
 auto tx_history_archiver::add_transaction(cbdc::transaction::full_tx tx) -> bool{
     if(m_sentinel_id == INVALID_SENTINEL_ID) return false;
@@ -123,7 +111,7 @@ auto tx_history_archiver::delete_transaction(const string & txidStr) -> unsigned
 auto tx_history_archiver::build_status_key(const string& txid, tx_state status) -> string {
     string keyBuf = txid;
     keyBuf.append("-", 1);
-    char statByte = '0' + (char)status; 
+    char statByte = std::to_string((int)status)[0]; 
     keyBuf.append(&statByte, sizeof(char));
     return keyBuf;
 }

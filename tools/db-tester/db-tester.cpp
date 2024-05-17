@@ -132,7 +132,7 @@ struct db_container {
                 = wallet2.send_to(50, wallet1.generate_key(), true).value();
             process_tx();
         }
-    }
+   }
 
     void tear_down() {
         std::filesystem::remove_all(g_shard_test_dir);
@@ -144,8 +144,14 @@ static void test_tx_history_archive(benchmark::State& state) {
     opts.m_sentinel_loglevels.push_back(visualize ? cbdc::logging::log_level::trace : cbdc::logging::log_level::warn);
     auto db = db_container();
     opts.m_sentinel_loglevels[sentinel_id] = cbdc::logging::log_level::warn;
-    opts.tha_type = string("leveldb");
-    opts.tha_parameter = std::string("./tha_db");
+///    opts.tha_type = string("leveldb");
+    opts.tha_type = string("Keyspaces");
+///    opts.tha_parameter = std::string("./tha_db");
+    opts.tha_parameter = "localhost";
+    opts.tha_port = 9042;
+    opts.tha_user = "cassandra";
+    opts.tha_password = "cassandra";
+    
     cbdc::sentinel_2pc::tx_history_archiver tha(sentinel_id, opts);
     cbdc::sentinel_2pc::tx_state statuses[100000];
 
@@ -160,7 +166,7 @@ static void test_tx_history_archive(benchmark::State& state) {
                 cout << "Failure on attempt to add transaction: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
                 ++errors_number;
             }
-            else if(visualize) cout << "Add transaction: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
+            else if(visualize) cout << "Add transaction #" << i << ": " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, status, 0) << endl;
 
             cbdc::hash_t  txId = tx_id(tx);
             if(!tha.set_status(txId, status)) {
@@ -180,7 +186,7 @@ static void test_tx_history_archive(benchmark::State& state) {
 
             // Read newly added records and their statuses
             if(tha.get_transaction_by_hash(txId, last_status, readTx, timestamp)) {
-                if(visualize) cout << "Successfully read TX: " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, last_status, timestamp) << endl;
+                if(visualize) cout << "Successfully read TX #" << i << ": " << cbdc::sentinel_2pc::tx_history_archiver::tx_to_str_pres(tx, last_status, timestamp) << endl;
             }
             else {
                 cout << "Cannot read TX: "<< endl;
@@ -188,8 +194,8 @@ static void test_tx_history_archive(benchmark::State& state) {
             }
 
             // Statuses should match
-            if(last_status != statuses[i++]) {
-                cout << "Wrong status" << (int)last_status << " while expected " << (int)statuses[i - 1] << endl;
+            if(last_status != statuses[i]) {
+                cout << "Wrong status (" << (int)last_status << ") while expected " << (int)statuses[i] << " for TX# " << i << " TxId=" << tx_history_archiver::mem_to_hex_str(txId.data()) << endl;                
                 ++errors_number;
             }
 
@@ -215,15 +221,18 @@ static void test_tx_history_archive(benchmark::State& state) {
                 ++errors_number;
             }
 
-            // Delete an absent record and its' statuses. Should fail.
-            deletedRec = tha.delete_transaction_by_hash(txId);
-            if(deletedRec == 0) {
-                if(visualize) cout << "As expected: cannot delete an absent record " << endl;
+            // Delete an absent record and its' statuses. Should fail (BUT NOT FOR KEYSPACES/KASSADRA)
+            if(opts.tha_type != string("Keyspaces")) {
+                deletedRec = tha.delete_transaction_by_hash(txId);
+                if(deletedRec == 0) {
+                    if(visualize) cout << "As expected: cannot delete an absent record " << endl;
+                }
+                else {
+                    cout << "Error: can delete an absent TX " << endl;
+                    ++errors_number;
+                }
             }
-            else {
-                cout << "Error: can delete an absent TX ";
-                ++errors_number;
-            }
+            ++i;
         }
     }
     db.tear_down();
@@ -238,7 +247,7 @@ auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
 
     benchmark::Initialize(&argc, argv);
     benchmark::RunSpecifiedBenchmarks();
-    benchmark::Shutdown();
+//    benchmark::Shutdown();
 
     return 0;
 }

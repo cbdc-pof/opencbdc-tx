@@ -14,6 +14,7 @@
 
 namespace cbdc::sentinel_2pc {
 const uint32_t  INVALID_SENTINEL_ID = 99999;
+class DBHandler;
 
 // Transaction status
 enum class tx_state {
@@ -49,11 +50,6 @@ class tx_history_archiver {
       tx_history_archiver(uint32_t sentinel_id, const config::options& opts);
 
       ~tx_history_archiver() { if(m_logger) m_logger.reset(); }
-
-      /// Initializes the archiver. Connects to the DB server (if required by DB choice)
-      /// \return true if initialization succeeded.
-      /// \param sentinel_id the ID of the sentinel this TH history archiver is attached to. If it is 0 - do not initialize DB
-      auto init(uint32_t sentinel_id, const std::string& db_param = "") -> bool;
 
       /// Adds new transaction to the archive
       /// \param tx transaction to add.
