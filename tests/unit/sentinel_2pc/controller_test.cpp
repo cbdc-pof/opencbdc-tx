@@ -99,9 +99,11 @@ class sentinel_2pc_test : public ::testing::Test {
     std::unique_ptr<cbdc::sentinel_2pc::controller> m_ctl;
     cbdc::transaction::full_tx m_valid_tx{};
     std::shared_ptr<cbdc::logging::log> m_logger;
-    std::unique_ptr<secp256k1_context, decltype(&secp256k1_context_destroy)>
-        m_secp{secp256k1_context_create(SECP256K1_CONTEXT_SIGN
-                                        | SECP256K1_CONTEXT_VERIFY),
+
+    using secp256k1_context_destroy_type = void (*)(secp256k1_context*);
+
+    std::unique_ptr<secp256k1_context, secp256k1_context_destroy_type>
+        m_secp{secp256k1_context_create(SECP256K1_CONTEXT_NONE),
                &secp256k1_context_destroy};
 };
 
