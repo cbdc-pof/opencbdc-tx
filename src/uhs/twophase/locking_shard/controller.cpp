@@ -39,6 +39,13 @@ namespace cbdc::locking_shard {
             return false;
         }
 
+        m_audit_log.open(m_opts.m_shard_audit_logs[m_shard_id],
+                         std::ios::app | std::ios::out);
+        if(!m_audit_log.good()) {
+            m_logger->error("Failed to open audit log");
+            return false;
+        }
+
         auto params = nuraft::raft_params();
         params.election_timeout_lower_bound_
             = static_cast<int>(m_opts.m_election_timeout_lower);
@@ -62,6 +69,10 @@ namespace cbdc::locking_shard {
             m_opts);
 
         m_shard = m_state_machine->get_shard_instance();
+
+        m_audit_thread = std::thread([this]() {
+            audit();
+        });
 
         if(m_shard_id > (m_opts.m_locking_shard_raft_endpoints.size() - 1)) {
             m_logger->error("The shard ID is out of range "
@@ -115,6 +126,10 @@ namespace cbdc::locking_shard {
 
     controller::~controller() {
         m_running = false;
+        if(m_audit_thread.joinable()) {
+            m_audit_thread.join();
+        }
+
         m_validation_queue.clear();
         for(auto& t : m_validation_threads) {
             if(t.joinable()) {
@@ -223,5 +238,44 @@ namespace cbdc::locking_shard {
 
         cb(std::move(request), valid);
         return true;
+    }
+
+    void controller::audit() {
+        while(m_running) {
+            constexpr auto audit_wait_interval = std::chrono::seconds(1);
+            std::this_thread::sleep_for(audit_wait_interval);
+            if(!m_running) {
+                break;
+            }
+            auto highest_epoch = m_shard->highest_epoch();
+            if(highest_epoch - m_last_audit_epoch
+               > m_opts.m_shard_audit_interval) {
+                auto audit_epoch = highest_epoch;
+                if(m_opts.m_shard_audit_interval > 0) {
+                    audit_epoch
+                        = (highest_epoch - m_opts.m_shard_audit_interval)
+                        - (highest_epoch % m_opts.m_shard_audit_interval);
+                }
+                if(audit_epoch > highest_epoch
+                   || audit_epoch <= m_last_audit_epoch) {
+                    continue;
+                }
+
+                m_logger->info("Running Audit for", audit_epoch);
+                auto maybe_commit = m_shard->get_summary(audit_epoch);
+                if(!maybe_commit.has_value()) {
+                    m_logger->error("Error running audit at epoch",
+                                    audit_epoch);
+                } else {
+                    m_audit_log << audit_epoch << " " << to_string(maybe_commit.value())
+                                << std::endl;
+                    m_logger->info("Audit completed for", audit_epoch);
+
+                    m_last_audit_epoch = audit_epoch;
+
+                    m_shard->prune(audit_epoch);
+                }
+            }
+        }
     }
 }
