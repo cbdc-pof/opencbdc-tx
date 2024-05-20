@@ -11,6 +11,7 @@
 #include "uhs/transaction/validation.hpp"
 #include "util/rpc/tcp_server.hpp"
 #include "util/serialization/format.hpp"
+#include "util/common/commitment.hpp"
 
 #include <utility>
 
