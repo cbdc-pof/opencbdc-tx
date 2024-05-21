@@ -175,8 +175,9 @@ CassResult*  KeyspacesDBHandler::executeCommand(const std::string& command) {
     cass_future_wait(result_future);
 
     // Check the result
+    const size_t MAX_PRINT_SIZE = 150;
     if (cass_future_error_code(result_future) == CASS_OK) {
-        m_logger->trace("Command executed successfully ", command.c_str());
+        m_logger->trace("DB Command executed successfully ", command.substr(0, min(command.length(), MAX_PRINT_SIZE)).c_str(), "...");
 
         // Process the result (retrieve and print data)
         result = (CassResult*) cass_future_get_result(result_future);

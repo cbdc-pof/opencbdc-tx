@@ -346,7 +346,7 @@ namespace cbdc::config {
         if(opts.m_seed_from != opts.m_seed_to) {
             auto priv_str = cfg.get_string(seed_privkey);
             if(!priv_str) {
-                return "Seed range defined but missing a private key";
+                return "Seed range defined but missing a private key of length " + std::to_string(sizeof(privkey_t) * 2);
             }
             if(priv_str.value().size() != sizeof(privkey_t) * 2) {
                 return "Invalid seed private key length";
@@ -454,8 +454,8 @@ namespace cbdc::config {
             opts.m_sentinel_public_keys.insert(key);
         }
         // Read THA related options
-        opts.tha_type = cfg.get_string(tha_type_name).value_or("leveldb");
-        opts.tha_parameter = cfg.get_string(tha_parameter_name).value_or("./tha_db");
+        opts.tha_type = cfg.get_string(tha_type_name).value_or("");
+        opts.tha_parameter = cfg.get_string(tha_parameter_name).value_or("");
         opts.tha_port = (uint32_t)cfg.get_ulong(tha_port_name).value_or(0);
         opts.tha_user = cfg.get_string(tha_user_name).value_or("");
         opts.tha_password = cfg.get_string(tha_password_name).value_or("");

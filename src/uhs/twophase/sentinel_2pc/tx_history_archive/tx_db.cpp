@@ -12,13 +12,10 @@ unique_ptr<DBHandler> DBHandler::createDBHandler(const config::options& opts,
                     uint32_t sentinel_id) {
     const string dbType = opts.tha_type;
     if (dbType == "Keyspaces") {
-/*
-        logger->error("Keyspaces DB is not supported yet");
-        return nullptr;
-*/
         return make_unique<KeyspacesDBHandler>(opts, logger, sentinel_id);
-    }
-    else {  /// LevelDB is default
+    } else if (dbType == "leveldb") {  
         return make_unique<LevelDBHandler>(opts, logger, sentinel_id);
+    } else {
+        return nullptr;
     }
 }
