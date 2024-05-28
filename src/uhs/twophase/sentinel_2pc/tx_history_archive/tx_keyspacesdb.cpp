@@ -20,17 +20,34 @@ KeyspacesDBHandler::KeyspacesDBHandler(const config::options& opts, shared_ptr<l
     m_session = cass_session_new();
 
     // Add contact points (IP addresses of Keyspaces nodes)
-    cass_cluster_set_contact_points(m_cluster, opts.tha_parameter.c_str());
-    cass_cluster_set_port(m_cluster, opts.tha_port); //Connect using TLS protocol
+    cass_cluster_set_contact_points(m_cluster, opts.m_tha_parameter.c_str());
+    cass_cluster_set_port(m_cluster, opts.m_tha_port); //Connect using TLS protocol
 
-    // Enable SSL/TLS
-/*    
-    CassSsl* ssl = cass_ssl_new();
-    cass_ssl_set_verify_flags(ssl, CASS_SSL_VERIFY_NONE); // Disable peer certificate verification
-    cass_cluster_set_ssl(m_cluster, ssl);
-*/
-    // Disable authentication
-    cass_cluster_set_credentials(m_cluster, opts.tha_user.c_str(), opts.tha_password.c_str()); 
+    if(strcasecmp(opts.m_tha_ssl_version.c_str(), "none") == 0) {
+        m_logger->info("Don't use SSL for Keyspaces connection");
+    } else {
+        auto sslVer = CASS_SSL_VERSION_TLS1_2;
+        if(strcasecmp(opts.m_tha_ssl_version.c_str(), "TLS1") == 0) {
+            sslVer = CASS_SSL_VERSION_TLS1;
+        } else if(strcasecmp(opts.m_tha_ssl_version.c_str(), "TLS1_1") == 0) {
+            sslVer = CASS_SSL_VERSION_TLS1_1;
+        } else if(strcasecmp(opts.m_tha_ssl_version.c_str(), "TLS1_2") == 0) {
+            sslVer = CASS_SSL_VERSION_TLS1_2;
+        } else {
+            m_logger->warn("Unsupported version of SSL library ", opts.m_tha_ssl_version, 
+                " specified. Supported are TLS1, TLS1_1, TLS1_2(default) or 'none' to NOT use SSL");
+        }
+        m_logger->info("Use SSL for Keyspaces connection with TLSv1.", sslVer);
+
+        // Enable SSL/TLS
+        CassSsl* ssl = cass_ssl_new();
+        cass_ssl_set_verify_flags(ssl, CASS_SSL_VERIFY_NONE); // Disable peer certificate verification
+        cass_ssl_set_min_protocol_version (ssl, CASS_SSL_VERSION_TLS1_2);
+        cass_cluster_set_ssl(m_cluster, ssl);
+    }
+
+    // Specify username/password
+    cass_cluster_set_credentials(m_cluster, opts.m_tha_user.c_str(), opts.m_tha_password.c_str()); 
 
     // Connect to the cluster
     CassFuture* connect_future = cass_session_connect(m_session, m_cluster);
@@ -167,6 +184,7 @@ CassResult*  KeyspacesDBHandler::executeCommand(const std::string& command) {
 
     // Prepare statement for the query
     CassStatement* statement = cass_statement_new(command.c_str(), 0);
+cass_statement_set_consistency(statement, CASS_CONSISTENCY_LOCAL_QUORUM);    
 
     // Execute the query
     CassFuture* result_future = cass_session_execute(m_session, statement);

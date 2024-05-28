@@ -38,20 +38,6 @@ auto main(int argc, char** argv) -> int {
         return -1;
     }
     auto opts = std::get<cbdc::config::options>(cfg_or_err);
-/*
-    string dbDir("tha_test");
-    cbdc::config::options opts;
-    opts.m_sentinel_loglevels.push_back(cbdc::logging::log_level::trace);
-    if(argc > 1) dbDir = argv[1];
-    opts.tha_type = string("leveldb");
-    opts.tha_parameter = dbDir;
-
-    opts.tha_type = "Keyspaces";
-    opts.tha_parameter = "localhost";
-    opts.tha_port = 9042;
-    opts.tha_user = "cassandra";
-    opts.tha_password = "cassandra";
-*/
     cbdc::sentinel_2pc::tx_history_archiver tha(cbdc::sentinel_2pc::INVALID_SENTINEL_ID + 1, opts);
     cbdc::sentinel_2pc::tx_state last_status;
     uint64_t timestamp;

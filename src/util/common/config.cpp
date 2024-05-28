@@ -453,12 +453,6 @@ namespace cbdc::config {
             auto key = hash_from_hex(sentinel_public_key.value());
             opts.m_sentinel_public_keys.insert(key);
         }
-        // Read THA related options
-        opts.tha_type = cfg.get_string(tha_type_name).value_or("");
-        opts.tha_parameter = cfg.get_string(tha_parameter_name).value_or("");
-        opts.tha_port = (uint32_t)cfg.get_ulong(tha_port_name).value_or(0);
-        opts.tha_user = cfg.get_string(tha_user_name).value_or("");
-        opts.tha_password = cfg.get_string(tha_password_name).value_or("");
 
         return std::nullopt;
     }
@@ -623,6 +617,26 @@ namespace cbdc::config {
             = cfg.get_ulong(loadgen_count_key).value_or(opts.m_loadgen_count);
     }
 
+    auto read_tha_options(options& opts, const parser& cfg)
+        -> std::optional<std::string> {
+
+        opts.m_tha_type = cfg.get_string(tha_type_name).value_or("");
+        opts.m_tha_parameter = cfg.get_string(tha_parameter_name).value_or("");
+        opts.m_tha_port = (uint32_t)cfg.get_ulong(tha_port_name).value_or(0);
+        opts.m_tha_user = cfg.get_string(tha_user_name).value_or("");
+        opts.m_tha_password = cfg.get_string(tha_password_name).value_or("");
+        opts.m_tha_ssl_version = cfg.get_string(tha_ssl_version_name).value_or("");
+
+        const auto tha_ep = cfg.get_endpoint(tha_endpoint_name);
+        if(!tha_ep) {
+            return std::string("No endpoint specified for transaction history archiver ") + " (" + tha_endpoint_name + ")";
+        }
+        opts.m_tha_endpoint = *tha_ep;
+        opts.m_tha_loglevel = cfg.get_loglevel(tha_loglevel_name).value_or(defaults::log_level);
+
+        return std::nullopt;
+    }
+
     auto read_options(const std::string& config_file)
         -> std::variant<options, std::string> {
         auto opts = options{};
@@ -666,8 +680,8 @@ namespace cbdc::config {
         }
 
         read_raft_options(opts, cfg);
-
         read_loadgen_options(opts, cfg);
+        read_tha_options(opts, cfg);
 
         return opts;
     }

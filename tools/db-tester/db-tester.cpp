@@ -145,12 +145,13 @@ static void test_tx_history_archive(benchmark::State& state) {
     auto db = db_container();
     opts.m_sentinel_loglevels[sentinel_id] = cbdc::logging::log_level::warn;
 ///    opts.tha_type = string("leveldb");
-    opts.tha_type = string("Keyspaces");
+    opts.m_tha_type = string("Keyspaces");
 ///    opts.tha_parameter = std::string("./tha_db");
-    opts.tha_parameter = "localhost";
-    opts.tha_port = 9042;
-    opts.tha_user = "cassandra";
-    opts.tha_password = "cassandra";
+    opts.m_tha_parameter = "localhost";
+    opts.m_tha_port = 9042;
+    opts.m_tha_user = "cassandra";
+    opts.m_tha_password = "cassandra";
+    opts.m_tha_ssl_version = "none";
     
     cbdc::sentinel_2pc::tx_history_archiver tha(sentinel_id, opts);
     cbdc::sentinel_2pc::tx_state statuses[100000];
@@ -222,7 +223,7 @@ static void test_tx_history_archive(benchmark::State& state) {
             }
 
             // Delete an absent record and its' statuses. Should fail (BUT NOT FOR KEYSPACES/KASSADRA)
-            if(opts.tha_type != string("Keyspaces")) {
+            if(opts.m_tha_type != string("Keyspaces")) {
                 deletedRec = tha.delete_transaction_by_hash(txId);
                 if(deletedRec == 0) {
                     if(visualize) cout << "As expected: cannot delete an absent record " << endl;

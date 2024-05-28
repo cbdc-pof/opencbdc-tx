@@ -25,17 +25,17 @@ tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
     }
 
     m_logger = std::make_shared<cbdc::logging::log>(opts.m_sentinel_loglevels[min(sentinel_id, loglevels_size - 1)]);
-    if(opts.tha_type.empty()) {
+    if(opts.m_tha_type.empty()) {
         m_logger->info("No tha_type parameter defined. THA functionality disabled.");
         m_sentinel_id = INVALID_SENTINEL_ID;
         return;
     }
 
-    m_logger->info("THA config: Type:", opts.tha_type, "Parameter: ", opts.tha_parameter, "Port:", opts.tha_port,
-        "User:", opts.tha_user, "Password:", opts.tha_password);
+    m_logger->info("THA config: Type:", opts.m_tha_type, "Parameter: ", opts.m_tha_parameter, "Port:", opts.m_tha_port,
+        "User:", opts.m_tha_user, "Password:", opts.m_tha_password, "SSL:", opts.m_tha_ssl_version);
 
     m_db = DBHandler::createDBHandler(opts, m_logger, sentinel_id);
-    m_logger->info("Initialize THA with sentinelId", std::to_string(sentinel_id), "Create TxHistory DB in folder", opts.tha_parameter.c_str());
+    m_logger->info("Initialize THA with sentinelId", std::to_string(sentinel_id), "Create TxHistory DB in folder", opts.m_tha_parameter.c_str());
 }
 
 auto tx_history_archiver::add_transaction(cbdc::transaction::full_tx tx) -> bool{

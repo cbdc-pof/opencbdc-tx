@@ -85,6 +85,9 @@ namespace cbdc::config {
     static constexpr auto tha_port_name = "tha_port";
     static constexpr auto tha_user_name = "tha_user";
     static constexpr auto tha_password_name = "tha_password";
+    static constexpr auto tha_endpoint_name = "tha_endpoint";
+    static constexpr auto tha_ssl_version_name = "tha_ssl_version";
+    static constexpr auto tha_loglevel_name = "tha_loglevel";
     static constexpr auto config_separator = "_";
     static constexpr auto db_postfix = "db";
     static constexpr auto start_postfix = "start";
@@ -163,6 +166,8 @@ namespace cbdc::config {
         std::vector<network::endpoint_t> m_watchtower_client_endpoints;
         /// List of watchtower internal endpoints, ordered by watchtower ID
         std::vector<network::endpoint_t> m_watchtower_internal_endpoints;
+        /// Transaction history hrchiver (tha) endpoint 
+        network::endpoint_t m_tha_endpoint;
         /// List of shard endpoints, ordered by shard ID.
         std::vector<network::endpoint_t> m_shard_endpoints;
         /// List of atomizer raft endpoints, ordered by atomizer ID.
@@ -209,6 +214,8 @@ namespace cbdc::config {
         std::vector<logging::log_level> m_archiver_loglevels;
         /// List of archiver log levels by watchtower ID.
         std::vector<logging::log_level> m_watchtower_loglevels;
+        /// Transaction history archiver (THA) log level
+        logging::log_level m_tha_loglevel;
         /// List of archiver DB paths by archiver ID.
         std::vector<std::string> m_archiver_db_dirs;
         /// Flag set if m_input_count or m_output_count are greater than zero.
@@ -265,11 +272,12 @@ namespace cbdc::config {
         size_t m_attestation_threshold{defaults::attestation_threshold};
 
         /// Transaction history archive 
-        std::string tha_type  = "";
-        std::string tha_parameter = "";
-        uint32_t    tha_port = 0;
-        std::string tha_user = "";
-        std::string tha_password = "";
+        std::string m_tha_type  = "";
+        std::string m_tha_parameter = "";
+        uint32_t    m_tha_port = 0;
+        std::string m_tha_user = "";
+        std::string m_tha_password = "";
+        std::string m_tha_ssl_version = "";
     };
 
     /// Read options from the given config file without checking invariants.

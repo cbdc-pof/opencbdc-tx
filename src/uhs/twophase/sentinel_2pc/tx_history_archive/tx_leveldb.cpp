@@ -14,7 +14,7 @@ LevelDBHandler::LevelDBHandler(const config::options& opts, shared_ptr<logging::
     }
     
     stringstream ss;
-    ss << opts.tha_parameter;
+    ss << opts.m_tha_parameter;
     if(sentinelId <= INVALID_SENTINEL_ID) ss << "_" << sentinelId;
     string dbPath = ss.str();
     
