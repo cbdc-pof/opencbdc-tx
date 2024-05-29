@@ -141,8 +141,9 @@ struct db_container {
 
 // Test THA 
 static void test_tx_history_archive(benchmark::State& state) {
-    opts.m_sentinel_loglevels.push_back(visualize ? cbdc::logging::log_level::trace : cbdc::logging::log_level::warn);
     auto db = db_container();
+/*
+    opts.m_sentinel_loglevels.push_back(visualize ? cbdc::logging::log_level::trace : cbdc::logging::log_level::warn);
     opts.m_sentinel_loglevels[sentinel_id] = cbdc::logging::log_level::warn;
 ///    opts.tha_type = string("leveldb");
     opts.m_tha_type = string("Keyspaces");
@@ -152,7 +153,7 @@ static void test_tx_history_archive(benchmark::State& state) {
     opts.m_tha_user = "cassandra";
     opts.m_tha_password = "cassandra";
     opts.m_tha_ssl_version = "none";
-    
+ */   
     cbdc::sentinel_2pc::tx_history_archiver tha(sentinel_id, opts);
     cbdc::sentinel_2pc::tx_state statuses[100000];
 
@@ -242,9 +243,22 @@ static void test_tx_history_archive(benchmark::State& state) {
 BENCHMARK(test_tx_history_archive);
 
 auto main([[maybe_unused]]int argc, [[maybe_unused]]char** argv) -> int {
-    string arg1 = (argc > 1) ? argv[1] : "";
-    std::transform(arg1.begin(), arg1.end(), arg1.begin(),[](unsigned char c) { return std::tolower(c); });
-    visualize = (arg1 == "v") ? true : false;
+    auto args = cbdc::config::get_args(argc, argv);
+    if(args.size() < 2) {
+        std::cerr << "Usage: " << args[0] << " <config file>"
+                  << std::endl;
+        return -1;
+    }
+    auto cfg_or_err = cbdc::config::load_options(args[1]);
+    if(std::holds_alternative<std::string>(cfg_or_err)) {
+        std::cerr << "Error loading config file: " << std::get<std::string>(cfg_or_err) << std::endl;
+        return -1;
+    }
+    opts = std::get<cbdc::config::options>(cfg_or_err);
+
+    string arg2 = (argc > 2) ? argv[2] : "";
+    std::transform(arg2.begin(), arg2.end(), arg2.begin(),[](unsigned char c) { return std::tolower(c); });
+    visualize = (arg2 == "v") ? true : false;
 
     benchmark::Initialize(&argc, argv);
     benchmark::RunSpecifiedBenchmarks();
