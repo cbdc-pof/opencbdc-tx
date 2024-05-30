@@ -1,6 +1,6 @@
 // Copyright (c) 2021 MIT Digital Currency Initiative,
 //                    Federal Reserve Bank of Boston
-// Distributed under the MIT software license, see the accompanying
+// Distributed under the MIT software license, see the accompanying 
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "uhs/transaction/transaction.hpp"
