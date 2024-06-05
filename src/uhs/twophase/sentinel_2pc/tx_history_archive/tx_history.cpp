@@ -25,8 +25,8 @@ tx_history_archiver::tx_history_archiver(uint32_t sentinel_id,
     }
 
     m_logger = std::make_shared<cbdc::logging::log>(opts.m_sentinel_loglevels[min(sentinel_id, loglevels_size - 1)]);
-    if(opts.m_tha_type.empty()) {
-        m_logger->info("No tha_type parameter defined. THA functionality disabled.");
+    if(opts.m_tha_type == "none") {
+        m_logger->info("tha_type parameter set to 'none'. THA functionality disabled.");
         m_sentinel_id = INVALID_SENTINEL_ID;
         return;
     }

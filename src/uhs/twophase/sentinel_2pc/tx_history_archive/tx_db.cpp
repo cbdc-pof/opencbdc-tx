@@ -11,11 +11,9 @@ unique_ptr<DBHandler> DBHandler::createDBHandler(const config::options& opts,
                     shared_ptr<logging::log> logger, 
                     uint32_t sentinel_id) {
     const string dbType = opts.m_tha_type;
-    if (dbType == "Keyspaces") {
-        return make_unique<KeyspacesDBHandler>(opts, logger, sentinel_id);
-    } else if (dbType == "leveldb") {  
+    if (dbType == "leveldb") {  
         return make_unique<LevelDBHandler>(opts, logger, sentinel_id);
-    } else {
-        return nullptr;
-    }
+    } else { // Default is Keyspaces
+	return make_unique<KeyspacesDBHandler>(opts, logger, sentinel_id);
+    }	
 }

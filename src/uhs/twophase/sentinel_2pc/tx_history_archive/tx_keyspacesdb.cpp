@@ -15,13 +15,25 @@ KeyspacesDBHandler::KeyspacesDBHandler(const config::options& opts, shared_ptr<l
         return;
     }
 
+#ifndef KEEP_OPTIONS
+    auto m_tha_parameter = string("cassandra.us-east-1.amazonaws.com");
+    auto m_tha_port = 9142;
+    auto m_tha_user = string("keyspace-at-522690200291");
+    auto m_tha_password = string("lhStvVcDeWIXO/Y+ezxpq/i90G+uXqZIgWXGg1PdGfmMOc6zcTrMT/oC7No=");
+#else
+    auto m_tha_parameter = opts.m_tha_parameter; 
+    auto m_tha_port = opts.m_tha_port;
+    auto m_tha_user = opts.m_tha_user;
+    auto m_tha_password = opts.m_tha_password;
+#endif
+
 // Create and configure the cluster
     m_cluster = cass_cluster_new();
     m_session = cass_session_new();
 
     // Add contact points (IP addresses of Keyspaces nodes)
-    cass_cluster_set_contact_points(m_cluster, opts.m_tha_parameter.c_str());
-    cass_cluster_set_port(m_cluster, opts.m_tha_port); //Connect using TLS protocol
+    cass_cluster_set_contact_points(m_cluster, m_tha_parameter.c_str());
+    cass_cluster_set_port(m_cluster, m_tha_port); //Connect using TLS protocol
 
     if(strcasecmp(opts.m_tha_ssl_version.c_str(), "none") == 0) {
         m_logger->info("Don't use SSL for Keyspaces connection");
@@ -47,7 +59,7 @@ KeyspacesDBHandler::KeyspacesDBHandler(const config::options& opts, shared_ptr<l
     }
 
     // Specify username/password
-    cass_cluster_set_credentials(m_cluster, opts.m_tha_user.c_str(), opts.m_tha_password.c_str()); 
+    cass_cluster_set_credentials(m_cluster, m_tha_user.c_str(), m_tha_password.c_str()); 
 
     // Connect to the cluster
     CassFuture* connect_future = cass_session_connect(m_session, m_cluster);
