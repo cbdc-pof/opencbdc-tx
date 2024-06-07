@@ -15,19 +15,12 @@ KeyspacesDBHandler::KeyspacesDBHandler(const config::options& opts, shared_ptr<l
         return;
     }
 
-#ifndef KEEP_OPTIONS
-    auto m_tha_parameter = string("cassandra.us-east-1.amazonaws.com");
-    auto m_tha_port = 9142;
-    auto m_tha_user = string("keyspace-at-522690200291");
-    auto m_tha_password = string("lhStvVcDeWIXO/Y+ezxpq/i90G+uXqZIgWXGg1PdGfmMOc6zcTrMT/oC7No=");
-#else
     auto m_tha_parameter = opts.m_tha_parameter; 
     auto m_tha_port = opts.m_tha_port;
     auto m_tha_user = opts.m_tha_user;
     auto m_tha_password = opts.m_tha_password;
-#endif
 
-// Create and configure the cluster
+    // Create and configure the cluster
     m_cluster = cass_cluster_new();
     m_session = cass_session_new();
 
@@ -69,19 +62,28 @@ KeyspacesDBHandler::KeyspacesDBHandler(const config::options& opts, shared_ptr<l
 
     // Check connection status
     if (cass_future_error_code(connect_future) == CASS_OK) {
-        std::cout << "Connected to Keyspaces cluster successfully!" << std::endl;
+        m_logger->info("Connected to Keyspaces cluster successfully");
         m_isOk = true;
     } else {
         // Handle connection error
         const char* error_message;
         size_t error_message_length;
         cass_future_error_message(connect_future, &error_message, &error_message_length);
-        std::cerr << "Connection error: " << std::string(error_message, error_message_length) << std::endl;
+        m_logger->error("Connection error: ", string(error_message, error_message_length));
         m_isOk = false;
     }
 
     // Clean up resources
     cass_future_free(connect_future);
+
+    // Get confirmation record
+    string confValue;
+    bool confirm = readRec(tx_confirm_key, confValue);
+    if(!confirm) {
+	m_logger->info("Confirmation record not found. Continue without Keyspaces DB");
+	m_isOk = false;
+        return;
+    }
 }
 
 KeyspacesDBHandler::~KeyspacesDBHandler() {

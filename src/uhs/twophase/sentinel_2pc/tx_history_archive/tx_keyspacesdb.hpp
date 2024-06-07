@@ -11,6 +11,7 @@ namespace cbdc::sentinel_2pc {
 const std::string tx_table_name ("bocopencbdc.txs");
 const std::string tx_key_column_name ("tx_key");
 const std::string tx_data_column_name ("tx");
+const std::string tx_confirm_key("confirm");
 
 // Keyspaces implementation of DBHandler class
 class KeyspacesDBHandler : public DBHandler {
