@@ -196,7 +196,8 @@ auto main(int argc, char** argv) -> int {
 
     auto ramp_timer = ramp_timer_full;
     auto ramping = ramp_timer.count() != 0
-                && per_gen_send_limit != cfg.m_loadgen_tps_target;
+                && per_gen_send_limit != cfg.m_loadgen_tps_target
+                && cfg.m_loadgen_tps_target != 0;
     auto gen_thread = std::thread([&]() {
         while(running) {
             // Determine if we should attempt to send a double-spending
@@ -270,14 +271,14 @@ auto main(int argc, char** argv) -> int {
                     } else {
                         ramp_timer -= gen_t;
                     }
-                }
-                auto total_send_time
-                    = std::chrono::nanoseconds(gen_avg * per_gen_send_limit);
-                if(total_send_time < std::chrono::seconds(1)) {
-                    send_gap
-                        = (std::chrono::seconds(1) - total_send_time).count()
-                        / per_gen_send_limit;
-                    logger->trace("New send-gap:", send_gap);
+                    auto total_send_time
+                        = std::chrono::nanoseconds(gen_avg * per_gen_send_limit);
+                    if(total_send_time < std::chrono::seconds(1)) {
+                        send_gap
+                            = (std::chrono::seconds(1) - total_send_time).count()
+                            / per_gen_send_limit;
+                        logger->trace("New send-gap:", send_gap);
+                    }
                 }
             } else {
                 std::this_thread::sleep_for(std::chrono::nanoseconds(gen_avg));
