@@ -390,10 +390,10 @@ namespace cbdc::transaction::validation {
             auto aux = maybe_aux.value();
             out_comms.push_back(aux);
 
-            //auto rng = check_range(proof.m_value_commitment, proof.m_range.value());
-            //if(rng.has_value()) {
-            //    return rng;
-            //}
+            auto rng = check_range(proof.m_value_commitment, proof.m_range);
+            if(rng.has_value()) {
+                return rng;
+            }
         }
 
         if(!check_commitment_sum(in_comms, out_comms, 0)) {

@@ -232,16 +232,16 @@ namespace cbdc::locking_shard {
 
         std::atomic_bool failed = false;
 
-        static constexpr auto scratch_size = 4096UL * 1024UL;
-        [[maybe_unused]] secp256k1_scratch_space* scratch
-            = secp256k1_scratch_space_create(m_secp.get(), scratch_size);
+        //static constexpr auto scratch_size = 4096UL * 1024UL;
+        //[[maybe_unused]] secp256k1_scratch_space* scratch
+        //    = secp256k1_scratch_space_create(m_secp.get(), scratch_size);
 
         // SAM START HERE: replace threading with batching
-        static constexpr size_t threshold = 100000;
-        size_t cursor = 0;
+        //static constexpr size_t threshold = 100000;
+        //size_t cursor = 0;
         //std::vector<std::future<std::optional<commitment_t>>> pool{};
         std::vector<commitment_t> comms{};
-        auto* range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), 34 * (threshold + 1));
+        //auto* range_batch = secp256k1_bppp_rangeproof_batch_create(m_secp.get(), 34 * (threshold + 1));
         auto summarize
             = [&](const snapshot_map<hash_t, uhs_element>& m) {
             for(const auto& [id, elem] : m) {
@@ -257,24 +257,24 @@ namespace cbdc::locking_shard {
                     if(uhs_id != id) {
                         failed = true;
                     }
-                    auto comm = elem.m_out.m_value_commitment;
-                    auto c = deserialize_commitment(m_secp.get(), comm).value();
-                    auto r = transaction::validation::range_batch_add(
-                        *range_batch,
-                        scratch,
-                        elem.m_out.m_range,
-                        c
-                    );
-                    if(!r.has_value()) {
-                        ++cursor;
-                    }
-                    comms.push_back(comm);
+                    //auto comm = elem.m_out.m_value_commitment;
+                    //auto c = deserialize_commitment(m_secp.get(), comm).value();
+                    //auto r = transaction::validation::range_batch_add(
+                    //    *range_batch,
+                    //    scratch,
+                    //    elem.m_out.m_range,
+                    //    c
+                    //);
+                    //if(!r.has_value()) {
+                    //    ++cursor;
+                    //}
+                    comms.push_back(elem.m_out.m_value_commitment);
                 }
-                if(cursor >= threshold) {
-                    failed = transaction::validation::check_range_batch(*range_batch).has_value();
-                    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
-                    cursor = 0;
-                }
+                //if(cursor >= threshold) {
+                //    failed = transaction::validation::check_range_batch(*range_batch).has_value();
+                //    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
+                //    cursor = 0;
+                //}
 //                    return comm;
 //                    auto f = std::async(std::launch::async,
 //                        [&]() -> std::optional<commitment_t> {
@@ -300,18 +300,18 @@ namespace cbdc::locking_shard {
 //
 //                    pool.emplace_back(std::move(f));
             }
-            if(cursor > 0) {
-                failed = transaction::validation::check_range_batch(*range_batch).has_value();
-                [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
-                cursor = 0;
-            }
+            //if(cursor > 0) {
+            //    failed = transaction::validation::check_range_batch(*range_batch).has_value();
+            //    [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_clear(m_secp.get(), range_batch);
+            //    cursor = 0;
+            //}
         };
 
         summarize(m_uhs);
         summarize(m_locked);
         summarize(m_spent);
-        [[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(m_secp.get(), range_batch);
-        free(range_batch);
+        //[[maybe_unused]] auto res = secp256k1_bppp_rangeproof_batch_destroy(m_secp.get(), range_batch);
+        //free(range_batch);
 
 //        if(!failed) {
 //            comms.reserve(pool.size());
