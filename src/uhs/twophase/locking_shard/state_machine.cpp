@@ -81,6 +81,10 @@ namespace cbdc::locking_shard {
     auto state_machine::process_request(cbdc::locking_shard::rpc::request req)
         -> cbdc::locking_shard::rpc::response {
         auto dtxid_str = to_string(req.m_dtx_id);
+        auto recv_time = std::chrono::high_resolution_clock::now()
+                             .time_since_epoch()
+                             .count();
+        long done_time{};
         return std::visit(
             overloaded{[&](rpc::lock_params&& params)
                            -> cbdc::locking_shard::rpc::response {
@@ -88,30 +92,43 @@ namespace cbdc::locking_shard {
                                           dtxid_str,
                                           "with",
                                           params.size(),
-                                          "txs");
+                                          "txs at",
+                                          recv_time);
                            auto res = m_shard->lock_outputs(std::move(params),
                                                             req.m_dtx_id);
                            assert(res.has_value());
-                           m_logger->info("Done lock", dtxid_str);
+                           done_time = std::chrono::high_resolution_clock::now()
+                                           .time_since_epoch()
+                                           .count();
+                           m_logger->info("Done lock",
+                                          dtxid_str,
+                                          "at",
+                                          done_time);
                            return res.value();
                        },
                        [&](rpc::apply_params&& params)
                            -> cbdc::locking_shard::rpc::response {
-                           m_logger->info("Processing apply", dtxid_str);
+                           m_logger->info("Processing apply", dtxid_str, "at", recv_time);
                            [[maybe_unused]] auto res
                                = m_shard->apply_outputs(std::move(params),
                                                         req.m_dtx_id);
                            assert(res);
-                           m_logger->info("Done apply", dtxid_str);
+                           done_time = std::chrono::high_resolution_clock::now()
+                                           .time_since_epoch()
+                                           .count();
+                           m_logger->info("Done apply", dtxid_str, "at", done_time);
                            return rpc::apply_response();
                        },
                        [&](rpc::discard_params&& /* params */)
                            -> cbdc::locking_shard::rpc::response {
-                           m_logger->info("Processing discard", dtxid_str);
+                           m_logger->info("Processing discard", dtxid_str, "at", recv_time);
                            [[maybe_unused]] auto res
                                = m_shard->discard_dtx(req.m_dtx_id);
                            assert(res);
-                           m_logger->info("Done discard", dtxid_str);
+                           done_time = std::chrono::high_resolution_clock::now()
+                                           .time_since_epoch()
+                                           .count();
+                           m_logger->info("Done discard", dtxid_str, "at", done_time);
                            return rpc::discard_response();
                        }},
             std::move(req.m_params));
