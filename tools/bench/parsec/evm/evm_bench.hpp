@@ -126,7 +126,7 @@ class evm_bench {
                           evmc::uint256be deal_id,
                           evmc::uint256be nonce,
                            cbdc::privkey_t skey) -> std::string; 
-    void schedule_escrow_release(size_t from /*arbiter*/, evmc::uint256be deal_id, size_t seller, evmc::uint256be amount);
+    void schedule_escrow_release(size_t from /*arbiter*/, size_t original_from,std::chrono::high_resolution_clock::time_point start_time, evmc::uint256be deal_id, size_t seller, evmc::uint256be amount);
 
     auto send_erc20(evmc::address erc20_addr,
                     evmc::uint256be nonce,
