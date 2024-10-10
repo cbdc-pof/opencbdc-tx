@@ -505,8 +505,7 @@ void evm_bench::schedule_escrow(size_t from, size_t seller, size_t to) {
     m_log->info("Scheduling escrow contracts with buyer ",from, ", arbiter ", to);
     auto send_amt = evmc::uint256be(1);
     auto& tx_from_addr = m_accounts[from].second;
-    auto original_to = to;
-    auto original_from = from;
+
     if(m_balances[tx_from_addr] < send_amt) {
         // When balance is too low, claim back what this account sent
         // to account 0 for m_contention_rate
@@ -518,20 +517,14 @@ void evm_bench::schedule_escrow(size_t from, size_t seller, size_t to) {
         return;
     }
 
-    // m_log->trace(cbdc::parsec::agent::runner::to_hex(tx_from_addr),
-    //                  " depositing ",
-    //                  cbdc::parsec::agent::runner::to_hex(send_amt), 
-    //                  " Balance was ", cbdc::parsec::agent::runner::to_hex(m_balances[tx_from_addr]));
-
     auto& acc_skey = m_accounts[from].first;
     auto& to_addr = m_accounts[to].second;
     auto& seller_addr = m_accounts[seller].second;
     auto& nonce = m_nonces[from];
     std::string send_tx_hex{};
 
-    //m_log->trace("sending Escrow's deposit request ");
-        send_tx_hex
-            = deposit_escrow(m_escrow_addr, nonce, to_addr, seller_addr, acc_skey, send_amt);
+    send_tx_hex
+        = deposit_escrow(m_escrow_addr, nonce, to_addr, seller_addr, acc_skey, send_amt);
 
     nonce = nonce + evmc::uint256be(1);
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -545,36 +538,26 @@ void evm_bench::schedule_escrow(size_t from, size_t seller, size_t to) {
          tx_from_addr,
          to_addr,
          send_amt,
-         seller,
-         original_to,
-         original_from](std::optional<std::string> maybe_txid) {
+         seller](std::optional<std::string> maybe_txid) {
             m_txs++;
+            m_in_flight--;
             if(!maybe_txid.has_value()) {
                 m_log->error("Error sending TX");
                 m_error = true;
                 return;
             }
             auto& from_bal = m_balances[tx_from_addr];
-            if(to == 0) {
-                auto& from_sent_to_zero = m_sent_to_zero[tx_from_addr];
-                from_sent_to_zero
-                    = from_sent_to_zero + evmc::uint256be(send_amt);
-            }
-            if(from == 0) {
-                auto& to_sent_to_zero = m_sent_to_zero[to_addr];
-                to_sent_to_zero = to_sent_to_zero - evmc::uint256be(send_amt);
-            }
+            
             auto& to_bal = m_balances[to_addr];
             from_bal = from_bal - evmc::uint256be(send_amt);
             to_bal = to_bal + evmc::uint256be(send_amt);
 
-            // Do it here
             m_log->trace("Escrow's deposit exe success with buyer:", from, ", arbiter:", to); 
             //m_log->trace(" TX executed successfully with new balance ", cbdc::parsec::agent::runner::to_hex(from_bal));
             m_in_flight++;
              m_client->get_transaction_receipt(
                 maybe_txid.value(),
-                [this, to, seller, send_amt](std::optional<std::string> value) {
+                [this, from, start_time, to, seller, send_amt](std::optional<std::string> value) {
                      m_txs++;
                     if(!value.has_value()) {
                         m_log->error("Error sending TX");
@@ -583,27 +566,12 @@ void evm_bench::schedule_escrow(size_t from, size_t seller, size_t to) {
                     }
                     //m_log->trace("\t deal-id:", value.value());
                     auto deal_id = cbdc::parsec::agent::runner::uint256be_from_hex(value.value());
-                    schedule_escrow_release(to, 
+                    schedule_escrow_release(to, from, start_time,  
                         deal_id.value(), 
                         seller, send_amt);
 
                     m_in_flight--;    
                  });
-            // 
-
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto latency = (end_time - start_time).count();
-            m_in_flight--;
-            m_samples_file << end_time.time_since_epoch().count() << " "
-                           << latency << "\n";
-
-            if(m_running) {
-                if(to != original_to) {
-                    schedule_tx(original_from, original_to);
-                    return;
-                }
-                //schedule_tx(to, from);
-            }
         });
 }
 
@@ -656,8 +624,7 @@ auto evm_bench::account_count() const -> size_t {
 }
 
 
-void evm_bench::schedule_escrow_release(size_t from /*arbiter*/, evmc::uint256be deal_id, size_t seller, evmc::uint256be amount) {
-    //auto& tx_from_addr = m_accounts[from].second;
+void evm_bench::schedule_escrow_release(size_t from /*arbiter*/, size_t original_from, std::chrono::high_resolution_clock::time_point start_time, evmc::uint256be deal_id, size_t seller, evmc::uint256be amount) {
     auto& seller_addr = m_accounts[seller].second;
     auto& acc_skey = m_accounts[from].first;
     auto& nonce = m_nonces[from];
@@ -671,46 +638,30 @@ void evm_bench::schedule_escrow_release(size_t from /*arbiter*/, evmc::uint256be
     // m_log->trace("Escrow Arbiter Private Key: ", cbdc::to_string(acc_skey));
     // m_log->trace("Escrow Arbiter Pub Key: ", cbdc::parsec::agent::runner::to_hex(tx_from_addr));
     
-    auto start_time = std::chrono::high_resolution_clock::now();
     m_in_flight++;
     m_client->send_transaction(
         send_tx_hex,
-        [this,from, seller,
+        [this,from, seller, original_from,
         amount,
          seller_addr,
          start_time](std::optional<std::string> maybe_txid) {
             m_txs++;
             if(!maybe_txid.has_value()) {
-                m_log->error("Error sending TX");
+                m_log->error("Error sending TX in release");
                 m_error = true;
                 return;
             }
             auto& seller_bal = m_balances[seller_addr];
             seller_bal = seller_bal + evmc::uint256be(amount);
             m_log->trace("Escrow's release exe success with arbiter: ", from, ", seller: ", seller );
-            //m_log->trace("TX Release Returned Successfully with new seller balance ", cbdc::parsec::agent::runner::to_hex(seller_bal));
-
             auto end_time = std::chrono::high_resolution_clock::now();
             auto latency = (end_time - start_time).count();
             m_in_flight--;
             m_samples_file << end_time.time_since_epoch().count() << " "
                            << latency << "\n";
-
-            // m_in_flight++;
-            // m_client->get_balance(
-            //     cbdc::parsec::agent::runner::to_hex(seller_addr),
-            //     [this, seller_addr](std::optional<evmc::uint256be> maybe_balance) {
-            //         m_in_flight--;
-        
-            //         if(!maybe_balance.has_value()) {
-            //             m_log->error("Error retrieving transaction count");
-            //             m_done = true;
-            //             return;
-            //         }
-
-            //         m_log->info("Server [",cbdc::parsec::agent::runner::to_hex(seller_addr),"] balance value is  ", cbdc::parsec::agent::runner::to_hex(maybe_balance.value()));
-            //     });
-
+            
+            m_log->trace("Escrow's being called Recursively from ", seller, ", seller: ", original_from);
+            schedule_escrow(seller, original_from, from);
         });
 }
 
