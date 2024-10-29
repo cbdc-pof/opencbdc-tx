@@ -59,6 +59,7 @@ namespace cbdc::parsec::agent::runner {
         luaL_openlibs(m_state.get());
 
         lua_register(m_state.get(), "check_sig", &lua_runner::check_sig);
+        lua_register(m_state.get(), "hash_string", &lua_runner::hash);
 
         static constexpr auto function_name = "contract";
 
@@ -108,13 +109,15 @@ namespace cbdc::parsec::agent::runner {
                 m_result_callback(error_code::result_key_type);
                 return;
             }
+           
             auto value_buf = get_stack_string(-1);
             if(!value_buf.has_value()) {
                 m_log->error("Result value is not a string");
                 m_result_callback(error_code::result_value_type);
                 return;
             }
-
+            m_log->trace(this, "Lua Key buf ", key_buf.value().to_hex());
+            m_log->trace(this, "Lua Value buf ", value_buf.value().to_hex());
             results.emplace(std::move(key_buf.value()),
                             std::move(value_buf.value()));
 
@@ -206,6 +209,38 @@ namespace cbdc::parsec::agent::runner {
         }
         schedule_contract();
     }
+
+    auto lua_runner::hash(lua_State* L) -> int {
+        int n = lua_gettop(L);
+        if(n != 1) {
+            lua_pushliteral(L, "not enough arguments");
+            lua_error(L);
+        }
+
+        if(lua_isstring(L, 1) != 1) {
+            lua_pushliteral(L, "invalid argument");
+            lua_error(L);
+        }
+
+        size_t sz{};
+        const auto* str = lua_tolstring(L, 1, &sz);
+        assert(str != nullptr);
+        std::cout<<"Printing Lua Hash input as "<<std::string(str)<<std::endl;
+        auto sha = CSHA256();
+        auto unsigned_str = std::vector<unsigned char>(sz);
+        std::memcpy(unsigned_str.data(), str, sz);
+        sha.Write(unsigned_str.data(), sz);
+        hash_t sighash{};
+        sha.Finalize(sighash.data());
+
+        auto hash_message = cbdc::to_string(sighash);
+        std::cout<<"Printing Lua Hash output as "<<hash_message<<std::endl;
+        lua_pushstring(L, hash_message.c_str());
+
+        return 1;
+    }
+
+
 
     auto lua_runner::check_sig(lua_State* L) -> int {
         int n = lua_gettop(L);

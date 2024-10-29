@@ -6,6 +6,7 @@
 #include "impl.hpp"
 
 #include <cassert>
+#include <algorithm>
 
 namespace cbdc::parsec::runtime_locking_shard {
     impl::impl(std::shared_ptr<logging::log> logger)
@@ -19,6 +20,8 @@ namespace cbdc::parsec::runtime_locking_shard {
                         try_lock_callback_type result_callback) -> bool {
         auto callbacks = pending_callbacks_list_type();
         auto w_details = std::optional<wounded_details>();
+        m_log->info(ticket_number, "called try_lock in Shard");
+        m_log->trace(this, "shard called try_lock in Shard ", ticket_number, " state_element _dump -> ", (m_state[key].m_lock.m_writer.has_value() ? m_state[key].m_lock.m_writer.value() : 0));   
         auto maybe_error = [&]() -> std::optional<error_code> {
             std::unique_lock<std::mutex> l(m_mut);
 
@@ -86,7 +89,7 @@ namespace cbdc::parsec::runtime_locking_shard {
             // Grab the requested state element
             auto& state_element = m_state[key];
             auto& lock = state_element.m_lock;
-
+            m_log->trace(this, "shard handling try_lock for", ticket_number, " state_element _dump -> ", (lock.m_writer.has_value() ? lock.m_writer.value() : 0));   
             // Queue the lock
             lock.m_queue.emplace(
                 ticket_number,
@@ -105,12 +108,14 @@ namespace cbdc::parsec::runtime_locking_shard {
         }();
 
         if(maybe_error.has_value()) {
+            m_log->trace(this, "shard handled try_lock for", ticket_number, " With Error ");
             result_callback(shard_error{maybe_error.value(), w_details});
         } else {
             // Call all the result callbacks without holding the lock
             for(auto& callback : callbacks) {
                 callback.m_callback(std::move(callback.m_returning));
             }
+             m_log->trace(this, "shard handled try_lock for", ticket_number, " callbacks ", callbacks.size());
         }
 
         return true;
@@ -127,6 +132,9 @@ namespace cbdc::parsec::runtime_locking_shard {
             // Tickets can't be deadlocked by prepared tickets and
             // we're not allowed to wound them anyway
             if(blocking_ticket.m_state == ticket_state::prepared) {
+                m_log->trace(this,
+                             blocking_ticket_number,
+                             "State is prepared, hence continue ");
                 continue;
             }
 
@@ -145,6 +153,9 @@ namespace cbdc::parsec::runtime_locking_shard {
 
         keys.insert(std::move(key));
 
+        m_log->trace(this,
+                             blocked_ticket,
+                             "Calling acquire locks now");
         auto acquire_callbacks = acquire_locks(keys);
         callbacks.insert(callbacks.end(),
                          std::make_move_iterator(acquire_callbacks.begin()),
@@ -159,6 +170,7 @@ namespace cbdc::parsec::runtime_locking_shard {
         -> std::vector<ticket_number_type> {
         auto waiting_on = std::vector<ticket_number_type>();
         auto younger_ticket = [&](auto blocking_ticket_number) {
+            //m_log->trace(this, "Tic num ", ticket_number,  " less than blocking tic num ");
             return ticket_number < blocking_ticket_number;
         };
         // Write locks wait on readers
@@ -174,6 +186,7 @@ namespace cbdc::parsec::runtime_locking_shard {
                 waiting_on.push_back(lock.m_writer.value());
             }
         }
+        //std::for_each(waiting_on.begin(), waiting_on.end(), [&](auto &elem) { m_log->trace(this, " Tic num inside waiting on ", elem); });
         return waiting_on;
     }
 
@@ -349,8 +362,10 @@ namespace cbdc::parsec::runtime_locking_shard {
         auto callbacks = pending_callbacks_list_type();
         for(const auto& key : keys) {
             // Attempt to allow queued tickets to acquire the lock
+            m_log->trace(this, "key acquiring lock ", key.to_hex());
             while(acquire_lock(key, callbacks)) {}
         }
+        m_log->trace(this, "callbck size ", callbacks.size());
         return callbacks;
     }
 
@@ -482,15 +497,19 @@ namespace cbdc::parsec::runtime_locking_shard {
     auto impl::acquire_lock(const key_type& key,
                             pending_callbacks_list_type& callbacks) -> bool {
         auto& locked_element = m_state[key];
+        m_log->trace(this, "Acquiring locks -> ", (locked_element.m_lock.m_writer.has_value() ? locked_element.m_lock.m_writer.value() : 0));
         auto& lk = locked_element.m_lock;
         if(lk.m_queue.empty()) {
+            m_log->trace(this, "Lock queue is empty for key ", key.to_hex());
             return false;
         }
+
         auto acquire_next = true;
         auto queue_node = lk.m_queue.begin();
         const auto& queued_ticket_number = queue_node->first;
         auto& queued_lock_element = queue_node->second;
         auto& queued_ticket = m_tickets[queued_ticket_number];
+
         // Acquire the read lock if the ticket requested a
         // read
         if(queued_lock_element.m_type == lock_type::read) {
@@ -504,6 +523,7 @@ namespace cbdc::parsec::runtime_locking_shard {
                          queued_ticket_number);
             lk.m_readers.insert(queued_ticket_number);
         }
+
         // Acquire the write lock if the ticket requested a
         // write
         if(queued_lock_element.m_type == lock_type::write) {
@@ -511,10 +531,12 @@ namespace cbdc::parsec::runtime_locking_shard {
             // can't acquire the write lock or allow any
             // more queued tickets to acquire the lock
             if(lk.m_readers.size() > 1 || lk.m_writer.has_value()) {
+                 m_log->trace(this, "Returning false here 1 ", key.to_hex(), " lk.m_readers.size() ", lk.m_readers.size(), ", ", lk.m_writer.value());
                 return false;
             }
             if(lk.m_readers.size() == 1) {
                 if(*lk.m_readers.begin() != queued_ticket_number) {
+                     m_log->trace(this, "Returning false here 2 ", key.to_hex());
                     return false;
                 }
 
