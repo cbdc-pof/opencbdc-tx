@@ -109,7 +109,7 @@ namespace cbdc::parsec::agent::runner {
                 m_result_callback(error_code::result_key_type);
                 return;
             }
-           
+
             auto value_buf = get_stack_string(-1);
             if(!value_buf.has_value()) {
                 m_log->error("Result value is not a string");
@@ -225,7 +225,7 @@ namespace cbdc::parsec::agent::runner {
         size_t sz{};
         const auto* str = lua_tolstring(L, 1, &sz);
         assert(str != nullptr);
-        std::cout<<"Printing Lua Hash input as "<<std::string(str)<<std::endl;
+        //std::cout<<"Printing Lua Hash input as "<<std::string(str)<<std::endl;
         auto sha = CSHA256();
         auto unsigned_str = std::vector<unsigned char>(sz);
         std::memcpy(unsigned_str.data(), str, sz);
@@ -233,9 +233,11 @@ namespace cbdc::parsec::agent::runner {
         hash_t sighash{};
         sha.Finalize(sighash.data());
 
-        auto hash_message = cbdc::to_string(sighash);
-        std::cout<<"Printing Lua Hash output as "<<hash_message<<std::endl;
-        lua_pushstring(L, hash_message.c_str());
+        //auto hash_message = cbdc::to_string(sighash);
+        // std::cout<<"Printing Lua Hash output as "<<hash_message<<std::endl;
+        const char* data = reinterpret_cast<const char*>(sighash.data());
+
+        lua_pushlstring(L, data, sighash.size());
 
         return 1;
     }

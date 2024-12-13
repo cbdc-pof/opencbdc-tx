@@ -6,7 +6,7 @@
 #include "wallet.hpp"
 
 #include "uhs/transaction/messages.hpp"
-#include "uhs/transaction/validation.hpp"
+//#include "uhs/transaction/validation.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/istream_serializer.hpp"
 #include "util/serialization/ostream_serializer.hpp"
@@ -169,12 +169,18 @@ namespace cbdc {
             bool key_ours = false;
             {
                 std::shared_lock<std::shared_mutex> sl(m_keys_mut);
-                const auto wit_prog = m_witness_programs.find(wit_commit);
-                key_ours = wit_prog != m_witness_programs.end();
-                if(key_ours) {
-                    pubkey = wit_prog->second;
+                auto wit_prog = get_value<pubkey_t>(wit_commit);
+                if (wit_prog.has_value()) {
+                    key_ours = true;
+                    pubkey = wit_prog.value();
                     seckey = m_keys.at(pubkey);
                 }
+                // const auto wit_prog = m_witness_programs.find(wit_commit);
+                // key_ours = wit_prog != m_witness_programs.end();
+                // if(key_ours) {
+                //     pubkey =  get_value<pubkey_t>(wit_prog->second);
+                //     seckey = m_keys.at(pubkey);
+                // }
             }
 
             if(key_ours) {

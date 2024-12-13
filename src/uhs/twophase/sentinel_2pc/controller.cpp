@@ -168,7 +168,6 @@ namespace cbdc::sentinel_2pc {
                         err});
                     return;
                 }
-
                 auto compact_tx = cbdc::transaction::compact_tx(tx2);
                 gather_attestations(tx2, result_callback, compact_tx, {});
                 return;

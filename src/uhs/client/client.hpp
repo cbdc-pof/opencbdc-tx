@@ -82,6 +82,7 @@ namespace cbdc {
         auto send(uint32_t value, const pubkey_t& payee)
             -> std::pair<std::optional<transaction::full_tx>,
                          std::optional<cbdc::sentinel::execute_response>>;
+           
 
         /// \brief Send a specified number of fixed-value outputs from this
         ///        client's wallet to a target address.
@@ -186,6 +187,9 @@ namespace cbdc {
         /// \param payee the destination address of the transfer.
         /// \return the transaction created.
         auto create_transaction(uint32_t value, const pubkey_t& payee)
+            -> std::optional<transaction::full_tx>;
+
+        auto create_transaction(uint32_t value, const pubkey_t& payee, const std::string& tx_hash, const pubkey_t& cbdc_pubk, const uint64_t expiry)
             -> std::optional<transaction::full_tx>;
 
         /// \brief Send the given transaction to the sentinel.

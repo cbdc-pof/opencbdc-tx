@@ -48,6 +48,10 @@ COPY --from=builder /opt/tx-processor/build/src/uhs/twophase/sentinel_2pc/sentin
 COPY --from=builder /opt/tx-processor/build/src/uhs/twophase/coordinator/coordinatord ./build/src/uhs/twophase/coordinator/coordinatord
 COPY --from=builder /opt/tx-processor/build/src/uhs/twophase/locking_shard/locking-shardd ./build/src/uhs/twophase/locking_shard/locking-shardd
 COPY --from=builder /opt/tx-processor/build/tools/bench/twophase-gen ./build/tools/bench/twophase-gen
+COPY --from=builder /opt/tx-processor/build/tools/bench/atomic_swap_iteration ./build/tools/bench/atomic_swap_iteration
+COPY --from=builder /opt/tx-processor/build/tools/bench/atomic_swap_cbdc1_iteration ./build/tools/bench/atomic_swap_cbdc1_iteration
+
+
 
 # Copy minimal test transactions script
 COPY --from=builder /opt/tx-processor/scripts/test-transaction.sh ./scripts/test-transaction.sh
@@ -57,6 +61,10 @@ COPY --from=builder /opt/tx-processor/build/src/uhs/client/client-cli ./build/sr
 
 # Copy 2PC config
 COPY --from=builder /opt/tx-processor/2pc-compose.cfg ./2pc-compose.cfg
+# COPY --from=builder /opt/tx-processor/2pc-compose-cbdc1.cfg ./2pc-compose-cbdc1.cfg
+# COPY --from=builder /opt/tx-processor/2pc-compose-cbdc2.cfg ./2pc-compose-cbdc2.cfg
+
+
 
 # Create Atomizer Deployment Image
 FROM $IMAGE_VERSION AS atomizer

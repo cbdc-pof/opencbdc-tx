@@ -3,4 +3,6 @@ project(transaction)
 add_library(transaction transaction.cpp
                         messages.cpp
                         validation.cpp
-                        wallet.cpp)
+                        wallet.cpp
+                        tnswap_validation.cpp
+                        swap_wallet.cpp)

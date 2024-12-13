@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "validation.hpp"
-
+#include "tnswap_validation.hpp"
 #include "transaction.hpp"
 
 #include <cassert>
@@ -150,6 +150,12 @@ namespace cbdc::transaction::validation {
         switch(witness_program_type) {
             case witness_program_type::p2pk:
                 return check_p2pk_witness(tx, idx);
+            case witness_program_type::tnswap_receive:
+                std::cout<<"Found Wit prog tnswap_receive\n";
+                return check_tnswap_receive_witness(tx, idx);    
+            case witness_program_type::tnswap_refund:
+                std::cout<<"Found Wit prog tnswap_refund\n";
+                return check_tnswap_refund_witness(tx, idx);    
             default:
                 return witness_error_code::unknown_witness_program_type;
         }
@@ -305,6 +311,7 @@ namespace cbdc::transaction::validation {
         return wit_commit;
     }
 
+   
     auto to_string(cbdc::transaction::validation::tx_error_code err)
         -> std::string {
         switch(err) {

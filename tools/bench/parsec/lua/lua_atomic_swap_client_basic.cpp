@@ -119,7 +119,7 @@ void wait_for_init(size_t expected_count,
                   expected_count);
         std::this_thread::sleep_for(wait_time);
     }
-    if(init_count < expected_count || init_error) {
+    if (init_count < expected_count || init_error) {
         log->fatal("Initialization failed");
     }
 }
@@ -287,29 +287,23 @@ auto main(int argc, char** argv) -> int {
     init_count = 0;
     init_error = false;
     for(size_t i = 0; i < n_wallets; i++) {
-        for(size_t j = 0; j < static_cast<size_t>(
-                              cbdc::parsec::account_wallet::CBDC_TAG::count);
-            j++) {
-            auto res = wallets[i].init(
-                static_cast<cbdc::parsec::account_wallet::CBDC_TAG>(j),
-                init_balance,
-                [&](bool retu) {
-                    if(!retu) {
-                        init_error = true;
-                    } else {
-                        init_count++;
-                    }
-                });
-            if(!res) {
-                init_error = true;
-                break;
-            }
+        auto res
+            = wallets[i].init(cbdc::parsec::account_wallet::CBDC_TAG::cbdc2,
+                              init_balance,
+                              [&](bool retu) {
+                                  if(!retu) {
+                                      init_error = true;
+                                  } else {
+                                      init_count++;
+                                  }
+                              });
+        if(!res) {
+            init_error = true;
+            break;
         }
     }
 
-    wait_for_init(n_wallets
-                      * static_cast<size_t>(
-                          cbdc::parsec::account_wallet::CBDC_TAG::count),
+    wait_for_init(n_wallets,
                   init_count,
                   init_error,
                   log);
@@ -318,7 +312,7 @@ auto main(int argc, char** argv) -> int {
     /* ################################# STEP 0: Initialization * ################################# */
     log->info("Initiating the Atomic Swap Protocol");
     log->info("Roles:");
-    log->info("- Wallet 0 (Alice): Initiator with CBDC1");
+    log->info("- Wallet 0 (Alice): Initiator with CBDC2");
     log->info("- Wallet 1 (Bob): Receiver with CBDC2");
 
     size_t from = 0, to = 1;
@@ -333,38 +327,13 @@ auto main(int argc, char** argv) -> int {
               .count()
         + 1000 * 60 * 60 /* 1 hour */;
     auto in_flight = std::atomic<size_t>(0);
-    uint64_t amount = 100; // assumes swap ratio as 1:1
+    uint64_t amount = 100; // assumes swap ratio as 1:10
 
     /* ################################# STEP 1: Creation of Contracts * ################################# */
     log->info("STEP 1: Creation of Contracts");
 
-    /* --------- Initiator (Alice) Creates Swap Transaction --------- */
-    log->info("Initiator (Alice, Wallet :", from, ") creating swap transaction in CBDC1");
-    in_flight++;
-    wallets[from].create_swap_transaction(
-        creation_contract_key,
-        cbdc::parsec::account_wallet::CBDC_TAG::cbdc1,
-        wallets[to].get_pubkey(),
-        amount,
-        time_exp,
-        s_hash,
-        [&, from, to](bool retu) {
-            if(!retu) {
-                log->error("Creation contract error for initiator (Alice)");
-            }
-            log->info("Initiator (Alice, Wallet",
-                       from,
-                       ") created swap contract for Wallet:",
-                       to, " in CBDC1");
-            in_flight--;
-        });
-
-    while(in_flight > 0) {
-        std::this_thread::sleep_for(wait_time);
-    }
-
     /* --------- Receiver (Bob) Creates Swap Transaction --------- */
-    log->info("Receiver (Bob, Wallet", to, ") creating swap transaction in CBDC2");
+    log->info("Receiver (Bob, Wallet", to, ") creating swap transaction in CBDC2 for amount:", amount);
     in_flight++;
     wallets[to].create_swap_transaction(
         creation_contract_key,
@@ -376,7 +345,7 @@ auto main(int argc, char** argv) -> int {
         [&, from, to](bool retu) {
             if(!retu) {
                 log->error("Creation contract error for receiver (Bob)");
-            }
+            } else 
             log->info("Receiver (Bob, Wallet",
                        to,
                        ") created swap contract for Wallet",
@@ -406,7 +375,7 @@ auto main(int argc, char** argv) -> int {
         [&, from, to](bool retu) {
             if(!retu) {
                 log->error("Execution contract error for initiator (Alice)");
-            }
+            } else
             log->info("Initiator (Alice, Wallet", from, ") executed swap, receiving",
                        amount,
                        "from Wallet",
@@ -418,14 +387,9 @@ auto main(int argc, char** argv) -> int {
         std::this_thread::sleep_for(wait_time);
     }
 
-    for (auto i = 0; i < 10; i++) {
-      std::cout<<".";
-      std::this_thread::sleep_for(wait_time);
-    }
     std::cout<<std::endl;
 
-    /* --------- Receiver (Bob) Completes the Swap --------- */
-    log->info("Receiver (Bob, Wallet", to, ") completing the swap");
+    /* ################################# STEP 3: Get Secret Key * ################################# */
     in_flight++;
     log->info("Receiver (Bob, Wallet", to, ") retrieving secret key from CBDC2");
     wallets[to].get_secret_key(
@@ -435,40 +399,13 @@ auto main(int argc, char** argv) -> int {
         [&](std::string _sk) {
             log->info("Secret key retrieval result for Wallet:", to);
             if(!_sk.empty()) {
-                log->info("Secret key retrieved successfully for Wallet:", to, " from CBDC2");
-                in_flight++;
-                log->info("Receiver (Bob, Wallet",
-                           to,
-                           ") executing swap contract from CBDC1");
-                wallets[to].execute_swap_contract(
-                    execution_contract_key,
-                    cbdc::parsec::account_wallet::CBDC_TAG::cbdc1,
-                    cbdc::hash_from_hex(_sk),
-                    [&, from, to](bool retu) {
-                        if(!retu) {
-                            log->error("Execution contract error for receiver "
-                                       "(Bob, Wallet",
-                                       to,
-                                       ")");
-                        }
-                        log->info("Receiver (Bob, Wallet",
-                                   to,
-                                   ") executed swap, receiving",
-                                   amount,
-                                   "from Wallet in CBDC1",
-                                   from);
-                        in_flight--;
-                    });
-            } else {
-                log->error("Failed to retrieve secret key for Wallet", to);
+                log->info("Secret key \n{", _sk, "}\n retrieved successfully for Wallet:", to, " from CBDC2");
             }
-            in_flight--;
         });
-
-    // Wait for all transactions to be processed
+    
     while(in_flight > 0) {
         std::this_thread::sleep_for(wait_time);
-    }
+    }    
 
     return 0;
 }

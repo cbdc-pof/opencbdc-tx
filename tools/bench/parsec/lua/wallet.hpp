@@ -82,24 +82,24 @@ namespace cbdc::parsec {
                            pubkey_t to,
                            uint64_t amount,
                            uint64_t time_exp,
-                           std::string s_hash,
+                           cbdc::skey_hash_t s_hash,
                            const std::function<void(bool)>& result_callback)
             -> bool;
 
         auto
         execute_swap_contract(cbdc::buffer contract_key,
                      cbdc::parsec::account_wallet::CBDC_TAG cbdc,
-                     std::string sk,
+                     cbdc::skey_t sk,
                      const std::function<void(bool)>& result_callback) -> bool;
 
         auto
         get_secret_key(cbdc::buffer contract_key,
                      cbdc::parsec::account_wallet::CBDC_TAG cbdc,
-                     std::string sk,
+                     cbdc::skey_t sk,
                      const std::function<void(std::string)>& result_callback) -> bool;
 
         auto
-        generate_sk_and_returned_hash() -> std::pair<std::string, std::string>;
+        generate_sk_and_returned_hash() -> std::pair<cbdc::skey_hash_t, cbdc::skey_t>;
 
       private:
         privkey_t m_privkey{};
@@ -126,7 +126,7 @@ namespace cbdc::parsec {
         auto make_pay_params(CBDC_TAG cbdc,
                              pubkey_t to,
                              uint64_t amount,
-                             std::string s_hash,
+                             cbdc::skey_hash_t s_hash,
                              uint64_t time_expiry) const -> cbdc::buffer;
 
         std::unique_ptr<secp256k1_context,

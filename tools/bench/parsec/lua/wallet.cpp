@@ -27,7 +27,7 @@ namespace cbdc::parsec {
         m_pubkey = cbdc::pubkey_from_privkey(m_privkey, m_secp.get());
         constexpr auto account_prefix = "account_";
         m_account_key.append(account_prefix, std::strlen(account_prefix));
-        auto puk = cbdc::to_string(m_pubkey);
+        //auto puk = cbdc::to_string(m_pubkey);
         m_account_key.append(m_pubkey.data(), m_pubkey.size());
     }
 
@@ -49,15 +49,11 @@ namespace cbdc::parsec {
         return res;
     }
 
-    auto account_wallet::generate_sk_and_returned_hash() -> std::pair<std::string, std::string> {
+    auto account_wallet::generate_sk_and_returned_hash() -> std::pair<cbdc::skey_hash_t, cbdc::skey_t> {
         auto rnd = cbdc::random_source(cbdc::config::random_source);
-        auto sk = to_string(rnd.random_hash());
-        auto unsigned_str = std::vector<std::byte>(sk.length());
-        std::memcpy(unsigned_str.data(), sk.c_str(), sk.length());
-        std::cout<<"sk len "<<sk.length()<<std::endl;
-        auto s_hash = cbdc::hash_data(unsigned_str.data(), unsigned_str.size());
-        std::cout<<"s_hash len "<<unsigned_str.size()<<std::endl;
-        return {to_string(s_hash), sk};
+        auto sk = rnd.random_hash();
+        auto s_hash = cbdc::hash_data(sk);
+        return {s_hash, sk};
     }
 
     auto account_wallet::pay(pubkey_t to,
@@ -154,7 +150,7 @@ namespace cbdc::parsec {
         auto cbdc_tag = tag_to_string(cbdc);
         auto new_account_key(m_account_key);
         new_account_key.append(cbdc_tag.c_str(), cbdc_tag.length());
-        
+
         //std::cout<<"cbdc tag len:  "<<cbdc_tag.length() << " Total key length "<< new_account_key.size()<<std::endl;
 
         auto res = put_row(m_broker,
@@ -169,7 +165,7 @@ namespace cbdc::parsec {
         return res;
     }
 
-    auto account_wallet::make_pay_params(cbdc::parsec::account_wallet::CBDC_TAG cbdc, pubkey_t to, uint64_t amount, std::string s_hash, uint64_t time_expiry) const
+    auto account_wallet::make_pay_params(cbdc::parsec::account_wallet::CBDC_TAG cbdc, pubkey_t to, uint64_t amount, cbdc::skey_hash_t s_hash, uint64_t time_expiry) const
         -> cbdc::buffer {
         auto params = cbdc::buffer();
         auto cbdc_tag = tag_to_string(cbdc);
@@ -178,10 +174,10 @@ namespace cbdc::parsec {
         params.append(to.data(), to.size());
         params.append(&amount, sizeof(amount));
         params.append(&m_sequence, sizeof(m_sequence));
-        params.append(s_hash.c_str(), s_hash.length());
+        params.append(s_hash.data(), s_hash.size());
         params.append(&time_expiry, sizeof(time_expiry));
         std::cout<<"Passing params are cbdc1 ("<<cbdc_tag.length()<<"), from ("<<m_pubkey.size()<<") to ("<<to.size()<<"), amount ("<<sizeof(amount)<<") m_sequence "
-        <<sizeof(m_sequence)<<", s_hash "<<s_hash.length()<<", timeexpiry "<<sizeof(time_expiry)<<std::endl;
+        <<sizeof(m_sequence)<<", s_hash "<<s_hash.size()<<", timeexpiry "<<sizeof(time_expiry)<<std::endl;
         std::cout<<"Total Len is "<<params.size()<<std::endl;
         return params;
     }
@@ -190,7 +186,7 @@ namespace cbdc::parsec {
         cbdc::buffer params,
         cbdc::buffer contract_key,
         const std::function<void(agent::interface::exec_return_type)>& result_callback) -> bool {
-        
+
         auto send_success = m_agent->exec(
             contract_key,
             std::move(params),
@@ -205,7 +201,7 @@ namespace cbdc::parsec {
         pubkey_t to,
         uint64_t amount,
         uint64_t time_exp,
-        std::string s_hash,
+        cbdc::skey_hash_t s_hash,
         const std::function<void(bool)>& result_callback) -> bool {
         if(amount > m_balance) {
             std::cout << "Swap Init tx Error because of insufficient balance"
@@ -244,12 +240,12 @@ namespace cbdc::parsec {
     auto account_wallet::execute_swap_contract(
         cbdc::buffer contract_key,
         cbdc::parsec::account_wallet::CBDC_TAG cbdc,
-        std::string sk,
+        cbdc::skey_t sk,
         const std::function<void(bool)>& result_callback) -> bool {
         auto params = cbdc::buffer();
         auto cbdc_tag = tag_to_string(cbdc);
         params.append(cbdc_tag.c_str(), cbdc_tag.length());
-        params.append(sk.c_str(), sk.length());
+        params.append(sk.data(), sk.size());
         //params.append(m_pubkey.data(), m_pubkey.size());
         return execute_params(
             params,
@@ -281,12 +277,12 @@ namespace cbdc::parsec {
     auto account_wallet::get_secret_key(
         cbdc::buffer contract_key,
         cbdc::parsec::account_wallet::CBDC_TAG cbdc,
-        std::string s_hash,
+        cbdc::skey_hash_t s_hash,
         const std::function<void(std::string)>& result_callback) -> bool {
         auto params = cbdc::buffer();
         auto cbdc_tag = tag_to_string(cbdc);
         params.append(cbdc_tag.c_str(), cbdc_tag.length());
-        params.append(s_hash.c_str(), s_hash.length());
+        params.append(s_hash.data(), s_hash.size());
         return execute_params(
             params,
             contract_key,
@@ -297,16 +293,17 @@ namespace cbdc::parsec {
                     auto updates = std::get<agent::return_type>(res);
                     auto new_account_key = cbdc::buffer();
                     /** Important note: Key Format is known to User or wallet **/
-                    auto strk = std::string("swap_"); 
+                    auto strk = std::string("swap_");
                     new_account_key.append(strk.c_str(),
                                            strk.length());
                     new_account_key.append(cbdc_tag.c_str(),
                                            cbdc_tag.length());
-                    new_account_key.append(s_hash.c_str(),
-                                           s_hash.length());                       
+                    new_account_key.append(s_hash.data(),
+                                           s_hash.size());
                     auto it = updates.find(new_account_key);
                     if (it != updates.end()) {
-                        auto sk = std::string(it->second.c_str());
+                        /////TODO//////////////////
+                        auto sk = it->second.to_hex();
                         std::cout
                             << "get Secret  transaction is successful for "
                             << cbdc_tag << ", "<<sk<<std::endl;
@@ -315,7 +312,7 @@ namespace cbdc::parsec {
                         std::cout << "Failure " << std::endl;
                         result_callback(std::string());
                     }
-                } else 
+                } else
                 result_callback(std::string());
             });
     }

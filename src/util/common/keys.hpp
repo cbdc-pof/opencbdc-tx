@@ -28,6 +28,11 @@ namespace cbdc {
     /// A signature.
     using signature_t = std::array<unsigned char, sig_len>;
 
+    /// A random key
+    using skey_t = std::array<unsigned char, pubkey_len>;
+    using skey_hash_t = std::array<unsigned char, pubkey_len>;
+    
+
     /// Generates a public key from the specified private key.
     /// \param privkey private key for which to generate the public key.
     /// \param ctx the secp context to use.

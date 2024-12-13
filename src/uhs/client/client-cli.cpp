@@ -173,6 +173,197 @@ auto confirmtx_command(cbdc::client& client,
     return true;
 }
 
+// /*initsend <addr2> <amount> <pubkey_cbdc2> <expected_txhash> */
+// auto maswap_init_send(cbdc::client& client, const std::vector<std::string>&
+// args) -> bool {
+//     static constexpr auto min_init_send_arg_count = 9;
+//     if (args.size() < min_init_send_arg_count) {
+//         std::cerr << "init send requires args <addr2> <amount>
+//         <pubkey_cbdc2> <expected_txhash>"
+//                   << std::endl;
+//         return false;
+//     }
+
+//     const auto value = std::stoul(args[6]);
+
+//     static constexpr auto address_arg_idx = 5;
+//     auto pubkey = cbdc::address::decode(args[address_arg_idx]);
+//     if(!pubkey.has_value()) {
+//         std::cout << "Could not decode address" << std::endl;
+//         return false;
+//     }
+
+//     static constexpr auto cbdc_address_arg_idx = 7;
+//     auto cbdc_pubkey = cbdc::address::decode(args[cbdc_address_arg_idx]);
+//     if(!pubkey.has_value()) {
+//         std::cout << "Could not decode address" << std::endl;
+//         return false;
+//     }
+
+//     static constexpr auto txhash_arg_idx = 8;
+//     const auto expected_txhash = args[txhash_arg_idx];
+//     // initsend(uint32_t value, const pubkey_t& payee, const std::string&
+//     tx_hash, const pubkey_t& cbdc) const auto [tx, resp]
+//         = client.initsend(static_cast<uint32_t>(value), pubkey.value(),
+//         expected_txhash, cbdc_pubkey.value());
+//     if(!tx.has_value()) {
+//         std::cout << "Could not generate valid send tx." << std::endl;
+//         return false;
+//     }
+
+//     return true;
+// }
+
+// /** Calcs the txhash required for modified atomic swap  */
+// auto maswap_calc_txhash(cbdc::client& client, const
+// std::vector<std::string>& args) -> bool {
+//     static constexpr auto min_send_arg_count = 9;
+//     if(args.size() < min_send_arg_count) {
+//         std::cerr << "calc_txhash requires args  <CBDC2 system tag> <addr1>
+//         <amount> <verify> <input(s)>" << std::endl; return false;
+//     }
+
+//     const auto cbdc_tag = args[5]; //check if tag is 1 or 2
+
+//     static constexpr auto address_arg_idx = 6;
+//     auto pubkey = cbdc::address::decode(args[address_arg_idx]);
+//     if(!pubkey.has_value()) {
+//         std::cout << "Could not decode address" << std::endl;
+//         return false;
+//     }
+
+//     unsigned long amount = std::stoul(args[7]);
+//     const auto verify = args[8] == "true" || args[8] == "1";
+
+//     std::vector<unsigned long> inputs;
+//     if (!verify) {
+//         for (size_t i = 9; i < args.size(); i++) {
+//             inputs.push_back(std::stoul(args[i]));
+//         }
+//     }
+//     auto txhash = client.create_txhash(cbdc_tag, pubkey.value(), amount,
+//     verify, inputs); if (!txhash.has_value()) {
+//         return false;
+//     }
+//     std::cout<<"Please note the txhash: "<<txhash.value()<<std::endl;
+//     return true;
+// }
+
+// auto maswap_info([[maybe_unused]]cbdc::client& client, [[maybe_unused]]const
+// std::vector<std::string>& args) -> bool {
+//     return true;
+// }
+// auto maswap_join_send([[maybe_unused]]cbdc::client& client,
+// [[maybe_unused]]const std::vector<std::string>& args) -> bool {
+//     return true;
+// }
+
+// auto maswap_receive([[maybe_unused]]cbdc::client& client,
+// [[maybe_unused]]const std::vector<std::string>& args) -> bool {
+//     return true;
+// }
+// auto maswap_refund([[maybe_unused]]cbdc::client& client,
+// [[maybe_unused]]const std::vector<std::string>& args) -> bool {
+//     return true;
+// }
+
+//  /**
+//      * client-cli … maswap <command> Description
+//  */
+// auto maswap_command([[maybe_unused]] cbdc::client& client,
+//                        const std::vector<std::string>& args) -> bool {
+//     const auto command = std::string(args[5]);
+
+//     if (command == "get_sys_pubkey") {
+//         // get_sys_pubkey prints the CBDC system public key of the swap
+//         joiner
+//             //client.
+//     } else if (command == "calc_txhash") {
+//         // calc_txhash <CBDC2 system tag> <addr1> <amount> <input(s)>
+//         if(!maswap_calc_txhash(client, args))
+//             std::cout<<"Failed to create txhash" <<std::endl;
+//     } else if (command == "initsend") {
+//         /* initsend <addr2> <amount> <pubkey_cbdc2> <expected_txhash>  */
+//         maswap_init_send(client, args);
+//     } else if (command == "info") {
+//         // info <witness prog> <txid1>
+//         maswap_info(client, args);
+//     } else if (command == "joinsend") {
+//         // joinsend <addr1> <amount>
+//         maswap_join_send(client, args);
+//     } else if (command == "receive") {
+//         // receive <witness prog> <txid> <txhash_sig> <addr>
+//         maswap_receive(client, args);
+
+//     } else if (command == "refund") {
+//        // refund <witness prog> <txid1>
+//         maswap_refund(client, args);
+//     } else {
+//         std::cerr << "Unknown command in maswap " << std::endl;
+//     }
+
+//     return true;
+// }
+
+auto tnswap_init_send([[maybe_unused]] cbdc::client& client,
+                      [[maybe_unused]] const std::vector<std::string>& args)
+    -> bool {
+    // generate skey and s-hash and returned,
+
+    return true;
+}
+
+auto tnswap_info([[maybe_unused]] cbdc::client& client,
+                 [[maybe_unused]] const std::vector<std::string>& args)
+    -> bool {
+    return true;
+}
+auto tnswap_join_send([[maybe_unused]] cbdc::client& client,
+                      [[maybe_unused]] const std::vector<std::string>& args)
+    -> bool {
+    return true;
+}
+
+auto tnswap_receive([[maybe_unused]] cbdc::client& client,
+                    [[maybe_unused]] const std::vector<std::string>& args)
+    -> bool {
+    return true;
+}
+auto tnswap_refund([[maybe_unused]] cbdc::client& client,
+                   [[maybe_unused]] const std::vector<std::string>& args)
+    -> bool {
+    return true;
+}
+/**
+ * client-cli … tnswap <command> Description
+ */
+auto tnswap_command([[maybe_unused]] cbdc::client& client,
+                    const std::vector<std::string>& args) -> bool {
+    const auto command = std::string(args[5]);
+
+    if(command == "initsend") {
+        /* initsend <addr2> <amount> */
+        tnswap_init_send(client, args);
+    } else if(command == "info") {
+        // info <witness prog> <txid1>
+        tnswap_info(client, args);
+    } else if(command == "joinsend") {
+        // joinsend <addr1> <amount> <Hs(k)>
+        tnswap_join_send(client, args);
+    } else if(command == "receive") {
+        // receive <witness prog> <txid> <txhash_sig> <addr>
+        tnswap_receive(client, args);
+
+    } else if(command == "refund") {
+        // refund <witness prog> <txid1>
+        tnswap_refund(client, args);
+    } else {
+        std::cerr << "Unknown command in maswap " << std::endl;
+    }
+
+    return true;
+}
+
 // LCOV_EXCL_START
 auto main(int argc, char** argv) -> int {
     auto args = cbdc::config::get_args(argc, argv);
@@ -250,6 +441,11 @@ auto main(int argc, char** argv) -> int {
         if(!confirmtx_command(*client, args)) {
             return -1;
         }
+
+        // } else if (command == "maswap") {
+        //    maswap_command(*client, args);
+    } else if(command == "tnswap") {
+        tnswap_command(*client, args);
     } else {
         std::cerr << "Unknown command" << std::endl;
     }
