@@ -49,7 +49,7 @@ COPY --from=builder /opt/tx-processor/build/src/uhs/twophase/coordinator/coordin
 COPY --from=builder /opt/tx-processor/build/src/uhs/twophase/locking_shard/locking-shardd ./build/src/uhs/twophase/locking_shard/locking-shardd
 COPY --from=builder /opt/tx-processor/build/tools/bench/twophase-gen ./build/tools/bench/twophase-gen
 COPY --from=builder /opt/tx-processor/build/tools/bench/atomic_swap_iteration ./build/tools/bench/atomic_swap_iteration
-COPY --from=builder /opt/tx-processor/build/tools/bench/atomic_swap_cbdc1_iteration ./build/tools/bench/atomic_swap_cbdc1_iteration
+#COPY --from=builder /opt/tx-processor/build/tools/bench/atomic_swap_cbdc1_iteration ./build/tools/bench/atomic_swap_cbdc1_iteration
 
 
 
@@ -58,6 +58,8 @@ COPY --from=builder /opt/tx-processor/scripts/test-transaction.sh ./scripts/test
 
 # Copy Client CLI
 COPY --from=builder /opt/tx-processor/build/src/uhs/client/client-cli ./build/src/uhs/client/client-cli
+
+COPY --from=builder /opt/tx-processor/build/src/uhs/client/tn_swap_iteration_basic ./build/src/uhs/client/tn_swap_iteration_basic
 
 # Copy 2PC config
 COPY --from=builder /opt/tx-processor/2pc-compose.cfg ./2pc-compose.cfg

@@ -215,9 +215,9 @@ int main(int argc, char** argv) {
               cbdc::skey_t skey,
               uint64_t expiry, cbdc::pubkey_t sender_key,
               cbdc::pubkey_t payee) -> std::optional<cbdc::transaction::full_tx> {
-        
+        auto ins = cbdc::transaction::swap_wallet::export_raw_inputs(prev_txn);
         auto txn = wallet.create_txn_tnswap_receive(
-            prev_txn,
+            ins,
             expiry,
             sender_key,
             payee,

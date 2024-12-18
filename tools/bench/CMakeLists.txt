@@ -47,19 +47,5 @@ target_link_libraries(atomic_swap_iteration sentinel
                                   secp256k1
                                   ${CMAKE_THREAD_LIBS_INIT})
 
-add_executable(atomic_swap_cbdc1_iteration atomic_swap_iteration_basic.cpp)
-target_link_libraries(atomic_swap_cbdc1_iteration sentinel
-                              sentinel_interface
-                              locking_shard
-                              coordinator
-                              transaction
-                              rpc
-                              network
-                              common
-                              serialization
-                              crypto
-                              ${NURAFT_LIBRARY}
-                              secp256k1
-                              ${CMAKE_THREAD_LIBS_INIT})
 
 add_subdirectory(parsec)

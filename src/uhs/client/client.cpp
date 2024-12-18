@@ -84,6 +84,8 @@ namespace cbdc {
             return false;
         }
 
+        m_client_transaction_handler = std::make_shared<client_transaction_handler>(client_transaction_handler(m_sentinel_client, m_logger));
+
         return init_derived();
     }
 
@@ -132,57 +134,6 @@ namespace cbdc {
         return tx;
     }
 
-    // auto client::create_transaction(uint32_t value, const pubkey_t& payee,
-    // const std::string& tx_hash, const pubkey_t& cbdc_pubk, const uint64_t
-    // expiry)
-    //     -> std::optional<transaction::full_tx> {
-    //     auto tx = m_wallet.send_to(value, payee, true, tx_hash, cbdc_pubk,
-    //     expiry); if(!tx.has_value()) {
-    //         return std::nullopt;
-    //     }
-
-    //     register_pending_tx(tx.value());
-
-    //     return tx;
-    // }
-
-    // auto client::create_txhash(const std::string cbdc_tag, const pubkey_t&
-    // payee, const unsigned long amount, const bool verify,
-    //          [[maybe_unused]] const std::vector<unsigned long>& inputs)
-    //     -> std::optional<std::string> {
-
-    //     CSHA256 sha;
-    //     sha.Write(reinterpret_cast<const unsigned char*>(cbdc_tag.c_str()),
-    //     cbdc_tag.length()); sha.Write(payee.data(), payee.size());
-    //     sha.Write(reinterpret_cast<const unsigned char*> (&amount),
-    //     sizeof(amount)); if (!verify) {
-    //         // inputs would be calc and displayed on console
-    //         auto spend_tx = create_transaction(static_cast<uint32_t>
-    //         (amount), payee); if(!spend_tx.has_value()) {
-    //             m_logger->error("Failed to generate wallet spend tx.");
-    //             return std::nullopt;
-    //         }
-    //         m_logger->info("Please note that following inputs will be
-    //         used"); for (auto input : spend_tx.value().m_inputs) {
-    //             m_logger->info("input amount :",
-    //             input.m_prevout_data.m_value);
-    //             sha.Write(reinterpret_cast<const unsigned char*>
-    //             (&input.m_prevout_data.m_value),
-    //             sizeof(input.m_prevout_data.m_value));
-    //         }
-
-    //     } else {
-    //         for (auto input : inputs) {
-    //             m_logger->info("input amount :", input);
-    //             sha.Write(reinterpret_cast<const unsigned char*> (&input),
-    //             sizeof(input));
-    //         }
-    //     }
-    //     cbdc::hash_t ret;
-    //     sha.Finalize(ret.data());
-    //     return cbdc::to_string(ret);
-    // }
-
     auto client::send(uint32_t value, const pubkey_t& payee)
         -> std::pair<std::optional<transaction::full_tx>,
                      std::optional<cbdc::sentinel::execute_response>> {
@@ -202,36 +153,6 @@ namespace cbdc {
 
         return std::make_pair(spend_tx.value(), res.value());
     }
-
-    // auto client::initsend(uint32_t value, const pubkey_t& payee, const std::string& tx_hash, const pubkey_t& cbdc_pubk)
-    //     -> std::pair<std::optional<transaction::full_tx>,
-    //                  std::optional<cbdc::sentinel::execute_response>> {
-    //     static constexpr auto null_return
-    //         = std::make_pair(std::nullopt, std::nullopt);
-
-    //     auto now = std::chrono::system_clock::now();
-    //     auto expiry = now + std::chrono::hours(24);    
-
-    //     uint64_t expiry_time = static_cast<uint64_t>(
-    //         std::chrono::duration_cast<std::chrono::microseconds>(
-    //             expiry.time_since_epoch())
-    //             .count());
-
-    //     m_logger->info("Expiry time set to: ", expiry_time);
-
-    //     auto spend_tx = create_transaction(value, payee, tx_hash, cbdc_pubk, expiry_time);
-    //     if(!spend_tx.has_value()) {
-    //         m_logger->error("Failed to generate wallet spend tx.");
-    //         return null_return;
-    //     }
-
-    //     auto res = send_transaction(spend_tx.value());
-    //     if(!res.has_value()) {
-    //         return null_return;
-    //     }
-
-    //     return std::make_pair(spend_tx.value(), res.value());
-    // }
 
     auto client::fan(uint32_t count, uint32_t value, const pubkey_t& payee)
         -> std::pair<std::optional<transaction::full_tx>,
@@ -281,6 +202,11 @@ namespace cbdc {
                                     const pubkey_t& payee)
         -> std::vector<transaction::input> {
         return transaction::wallet::export_send_inputs(send_tx, payee);
+    }
+
+    auto client::export_send_inputs(const transaction::full_tx& send_tx)
+        -> std::vector<transaction::input> {
+            return transaction::swap_wallet::export_raw_inputs(send_tx);
     }
 
     void client::import_send_input(const transaction::input& in) {
@@ -430,4 +356,33 @@ namespace cbdc {
         -> std::unordered_map<hash_t, transaction::input, hashing::null> {
         return m_pending_inputs;
     }
+
+    std::optional<cbdc::transaction::full_tx>
+        client::create_transaction(uint32_t amount,
+                           cbdc::pubkey_t payee,
+                           cbdc::skey_hash_t shash,
+                           uint64_t expiry) {
+
+        return m_client_transaction_handler->create_transaction(m_wallet, amount, payee, shash, expiry);
+
+    }
+
+    std::optional<cbdc::transaction::full_tx>
+        client::receive_transaction(const cbdc::transaction::input& prev_txn,
+                            cbdc::skey_t skey,
+                            uint64_t expiry,
+                            cbdc::pubkey_t sender_key,
+                            cbdc::pubkey_t payee) {
+
+        return m_client_transaction_handler->receive_transaction(m_wallet, prev_txn, skey, expiry, sender_key, payee);
+
+    }
+
+    std::pair<skey_t, skey_hash_t> client::generate_secret_pair_swap() {
+        return m_wallet.generate_skey();
+    }
+
+    std::optional<pubkey_t> client::get_tnswap_session_key(cbdc::skey_hash_t s_hash) {
+        return m_wallet.get_pubkey_swap_session(s_hash);
+    } 
 }

@@ -31,7 +31,7 @@ class TnSwapWitnessValidationTest  : public ::testing::Test {
         std::cout<<"Creating Receive Transaction\n";
 
 
-        m_valid_create_receive_tx = wallet2.create_txn_tnswap_receive(m_valid_create_tx, m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
+        m_valid_create_receive_tx = wallet2.create_txn_tnswap_receive(cbdc::transaction::swap_wallet::export_raw_inputs(m_valid_create_tx), m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
             m_pub_wallet2, m_skey).value();
 
         std::cout<<"Setup Done\n";
@@ -171,7 +171,7 @@ TEST_F(TnSwapWitnessValidationTest, PackUnpackRefundWitness) {
 
 TEST_F(TnSwapWitnessValidationTest, UnpackValidRefundWitness) {
     auto idx = 0; // Assume valid witness index
-     auto txn  = wallet1.create_txn_tnswap_refund(m_valid_create_tx, m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
+     auto txn  = wallet1.create_txn_tnswap_refund(cbdc::transaction::swap_wallet::export_raw_inputs(m_valid_create_tx), m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
             m_pub_wallet2, m_skey_hash).value();
 
     auto result = cbdc::transaction::validation::unpack_tnswap_refund_witness_data(txn, idx);
@@ -197,7 +197,7 @@ TEST_F(TnSwapWitnessValidationTest, UnpackValidRefundWitness) {
 
 TEST_F(TnSwapWitnessValidationTest, CheckRefundWitnessCommitment) {
     auto idx = 0; // Assume valid witness index
-     auto txn  = wallet1.create_txn_tnswap_refund(m_valid_create_tx, m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
+     auto txn  = wallet1.create_txn_tnswap_refund(cbdc::transaction::swap_wallet::export_raw_inputs(m_valid_create_tx), m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
             m_pub_wallet2, m_skey_hash).value();
 
     auto result = cbdc::transaction::validation::check_tnswap_refund_witness(txn, idx);
@@ -209,7 +209,7 @@ TEST_F(TnSwapWitnessValidationTest, CheckRefundWitnessCommitment) {
 }
 
 TEST_F(TnSwapWitnessValidationTest, validRefund) {
-     auto txn  = wallet1.create_txn_tnswap_refund(m_valid_create_tx, m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
+     auto txn  = wallet1.create_txn_tnswap_refund(cbdc::transaction::swap_wallet::export_raw_inputs(m_valid_create_tx), m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
             m_pub_wallet2, m_skey_hash).value();
 
     auto err = cbdc::transaction::validation::check_tx(txn);
@@ -217,7 +217,7 @@ TEST_F(TnSwapWitnessValidationTest, validRefund) {
 }
 
 TEST_F(TnSwapWitnessValidationTest, validReceive) {
-    //  auto txn  = wallet1.create_txn_tnswap_refund(m_valid_create_tx, m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
+    //  auto txn  = wallet1.create_txn_tnswap_refund(cbdc::transaction::swap_wallet::export_raw_inputs(m_valid_create_tx), m_expiry_time, wallet1.get_pubkey_swap_session(m_skey_hash).value(), 
     //         m_pub_wallet2, m_skey_hash).value();
 
     auto err = cbdc::transaction::validation::check_tx(m_valid_create_receive_tx);
