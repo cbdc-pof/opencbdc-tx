@@ -269,15 +269,32 @@ namespace cbdc {
         /// \param prev_txn The previous transaction to spend.
         /// \param skey The secret key for unlocking the transaction.
         /// \param expiry The expiration time for the transaction.
-        /// \param sender_key The sender's public key.
+        /// \param sender_addr The sender's public key.
         /// \param payee The recipient's public key.
         /// \return The created transaction if successful, otherwise nullopt.
         std::optional<cbdc::transaction::full_tx>
         receive_transaction(const cbdc::transaction::input& prev_txn,
                             cbdc::skey_t skey,
                             uint64_t expiry,
-                            cbdc::pubkey_t sender_key,
-                            cbdc::pubkey_t payee);
+                            cbdc::pubkey_t sender_addr,
+                            cbdc::pubkey_t receiver_addr);
+
+        /// \brief Refunds a transaction for Tier Nolan Swap (tnswap).
+        ///
+        /// Generates a refund transaction to recover funds from an expired
+        /// tnswap lock using the original sender's key and hash lock.
+        /// \param input_tx The input transaction to be refunded.
+        /// \param expiry_time The expiration time for the transaction.
+        /// \param sender_payee The sender's public key.
+        /// \param receiver_key The receiver's public key.
+        /// \param sk_hash The secret key hash used in the original lock.
+        /// \return An optional transaction. Contains a transaction if successful.
+        std::optional<cbdc::transaction::full_tx>
+        refund_transaction(const transaction::input& prev_input,
+                            const uint64_t expiry_time,
+                            const pubkey_t& sender_addr,
+                            const pubkey_t& receiver_addr,
+                            const skey_hash_t& sk_hash);
 
         std::pair<skey_t, skey_hash_t> generate_secret_pair_swap();                                 
 

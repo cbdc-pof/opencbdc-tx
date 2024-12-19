@@ -81,13 +81,34 @@ namespace cbdc {
         const cbdc::transaction::input& prev_txn,
         cbdc::skey_t skey,
         uint64_t expiry,
-        cbdc::pubkey_t sender_key,
+        cbdc::pubkey_t sender_addr,
         cbdc::pubkey_t payee) {
         auto txn = wallet.create_txn_tnswap_receive({prev_txn},
                                                     expiry,
-                                                    sender_key,
+                                                    sender_addr,
                                                     payee,
                                                     skey);
+        if(txn) {
+            auto result = execute_txn(wallet, txn.value()).get();
+            if(result) {
+                return txn;
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::optional<cbdc::transaction::full_tx>
+    client_transaction_handler::refund_transaction(cbdc::transaction::swap_wallet& wallet,
+                        const transaction::input& prev_input,
+                        const uint64_t expiry_time,
+                        const pubkey_t& sender_addr,
+                        const pubkey_t& receiver_addr,
+                        const skey_hash_t& sk_hash) {
+        auto txn = wallet.create_txn_tnswap_refund({prev_input},
+                                                    expiry_time,
+                                                    sender_addr,
+                                                    receiver_addr,
+                                                    sk_hash);
         if(txn) {
             auto result = execute_txn(wallet, txn.value()).get();
             if(result) {

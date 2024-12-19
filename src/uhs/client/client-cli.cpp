@@ -206,43 +206,37 @@ auto tnswap_init_send([[maybe_unused]] cbdc::client& client,
                       [[maybe_unused]] const std::vector<std::string>& args)
     -> bool {
     if (args.size() < 9) {
-        std::cerr << "Insufficient arguments. Required: <amount> <payee> <hash> <expiry>\n";
+        std::cerr << "Insufficient arguments. Required: tnswap initsend <amount> <payee> <hash> <expiry>\n";
         return false;
     }
 
-    //try {
-        const size_t i = 6; 
-        uint32_t amount = static_cast<uint32_t> (std::stoul(args[i]));
-        auto payee = cbdc::address::decode(args[i+1]);
-        auto shash = cbdc::hash_from_hex(args[i+2]);
-        uint64_t expiry = std::stoull(args[i+3]);
+    const size_t i = 6;
+    uint32_t amount = static_cast<uint32_t>(std::stoul(args[i]));
+    auto payee = cbdc::address::decode(args[i + 1]);
+    auto shash = cbdc::hash_from_hex(args[i + 2]);
+    uint64_t expiry = std::stoull(args[i + 3]);
 
-        if (!payee.has_value()) {
-            std::cout<<"Invalid Pub key"<<std::endl;
-            return false;
-        }
+    if(!payee.has_value()) {
+        std::cout << "Invalid Pub key" << std::endl;
+        return false;
+    }
 
-        // Create transaction
-        auto txn = client.create_transaction(amount, payee.value(), shash, expiry);
-        if (txn) {
-            std::cout << "Transaction successfully created: "
-                      << cbdc::to_string(cbdc::transaction::tx_id(txn.value()))
-                      << std::endl;
-            print_tx_result(txn);
+    // Create transaction
+    auto txn = client.create_transaction(amount, payee.value(), shash, expiry);
+    if(txn) {
+        std::cout << "Transaction successfully created: "
+                  << cbdc::to_string(cbdc::transaction::tx_id(txn.value()))
+                  << std::endl;
+        print_tx_result(txn);
 
-            std::cout<<"Sender Public Key used \n";
-            print_addr(client.get_tnswap_session_key(shash).value());
-            return true;
-        } else {
-            std::cerr << "Transaction creation failed." << std::endl;
-            return false;
-        }
-    // } catch (const std::exception& e) {
-    //     std::cerr << "Error parsing arguments: " << e.what() << std::endl;
-    //     return false;
-    // }
+        std::cout << "Sender Public Key used \n";
+        print_addr(client.get_tnswap_session_key(shash).value());
+        return true;
+    } else {
+        std::cerr << "Transaction creation failed." << std::endl;
+        return false;
+    }
 }
-
 
 auto tnswap_info([[maybe_unused]] cbdc::client& client,
                  [[maybe_unused]] const std::vector<std::string>& args)
@@ -259,7 +253,7 @@ auto tnswap_receive([[maybe_unused]] cbdc::client& client,
                     [[maybe_unused]] const std::vector<std::string>& args)
     -> bool {
     if (args.size() < 10) {
-        std::cerr << "Insufficient arguments. Required: <prev_txn> <skey> <expiry> <sender_public_key> <my_public_key>\n";
+        std::cerr << "Insufficient arguments. Required: tnswap receive <prev_txn> <skey> <expiry> <sender_public_key> <my_public_key>\n";
         return false;
     }
 
@@ -277,25 +271,27 @@ auto tnswap_receive([[maybe_unused]] cbdc::client& client,
     }
     auto skey = cbdc::hash_from_hex(args[i + 1]);
     uint64_t expiry = std::stoull(args[i + 2]);
-    auto sender_pubkey = cbdc::address::decode(args[i + 3]);
-    if(!sender_pubkey.has_value()) {
+    auto sender_addr = cbdc::address::decode(args[i + 3]);
+    if(!sender_addr.has_value()) {
         std::cout << "Invalid Sender pubkey " << std::endl;
         return false;
     }
-    auto session_pubkey = cbdc::address::decode(args[i + 4]);
-    if(!session_pubkey.has_value()) {
+    auto receiver_addr = cbdc::address::decode(args[i + 4]);
+    if(!receiver_addr.has_value()) {
         std::cout << "Invalid Session pubkey " << std::endl;
         return false;
     }
+
+    std::cout << "Initiating a receive transaction ..."<<std::endl;
 
     // Receive transaction
     auto txn = client.receive_transaction(in.value(),
                                           skey,
                                           expiry,
-                                          sender_pubkey.value(),
-                                          *session_pubkey);
+                                          sender_addr.value(),
+                                          *receiver_addr);
     if(txn) {
-        std::cout << "Transaction successfully received: "
+        std::cout << "Transaction executes successfully : "
                   << cbdc::to_string(cbdc::transaction::tx_id(txn.value()))
                   << std::endl;
         print_tx_result(txn);
@@ -309,7 +305,53 @@ auto tnswap_receive([[maybe_unused]] cbdc::client& client,
 auto tnswap_refund([[maybe_unused]] cbdc::client& client,
                    [[maybe_unused]] const std::vector<std::string>& args)
     -> bool {
-    return true;
+        if (args.size() < 10) {
+        std::cerr << "Insufficient arguments. Required: tnswap refund <prev_txn> <skey-hash> <expiry> <sender_public_key> <my_public_key>\n";
+        return false;
+    }
+
+    const size_t i = 6;
+    auto buffer = cbdc::buffer::from_hex(args[i]);
+    if(!buffer.has_value()) {
+        std::cout << "Invalid input encoding." << std::endl;
+        return false;
+    }
+
+    auto in = cbdc::from_buffer<cbdc::transaction::input>(buffer.value());
+    if(!in.has_value()) {
+        std::cout << "Invalid input" << std::endl;
+        return false;
+    }
+    auto sk_hash = cbdc::hash_from_hex(args[i + 1]);
+    uint64_t expiry = std::stoull(args[i + 2]);
+    auto sender_addr = cbdc::address::decode(args[i + 3]);
+    if(!sender_addr.has_value()) {
+        std::cout << "Invalid Sender pubkey " << std::endl;
+        return false;
+    }
+    auto receiver_addr = cbdc::address::decode(args[i + 4]);
+    if(!receiver_addr.has_value()) {
+        std::cout << "Invalid Session pubkey " << std::endl;
+        return false;
+    }
+
+    std::cout << "Initiating a refund transaction ..."<<std::endl;
+
+    // Receive transaction
+    auto txn = client.refund_transaction(in.value(),
+                                          expiry,
+                                          sender_addr.value(),
+                                          receiver_addr.value(), sk_hash);
+    if(txn) {
+        std::cout << "Transaction successfully received: "
+                  << cbdc::to_string(cbdc::transaction::tx_id(txn.value()))
+                  << std::endl;
+        print_tx_result(txn);
+        return true;
+    } else {
+        std::cerr << "Transaction reception failed." << std::endl;
+        return false;
+    }
 }
 
 /**

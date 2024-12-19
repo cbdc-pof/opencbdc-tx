@@ -20,7 +20,7 @@ namespace cbdc {
     /// \brief Handles transaction processing and execution for wallets.
     ///
     /// Provides functionality to execute transactions, including specialized
-    /// member functions for creating and receiving transactions in Toer Nolan
+    /// member functions for creating and receiving transactions in Tier Nolan
     /// Swaps.
     class client_transaction_handler {
       public:
@@ -34,7 +34,7 @@ namespace cbdc {
             cbdc::sentinel::rpc::client &sentinel_client,
             std::shared_ptr<cbdc::logging::log> logger);
 
-        /// \brief Creates a transaction for Toer Nolan Swap.
+        /// \brief Creates a transaction for Tier Nolan Swap.
         ///
         /// Generates a transaction for locking funds and submits it for
         /// execution. \param wallet The wallet used to create the transaction.
@@ -50,7 +50,7 @@ namespace cbdc {
                            cbdc::skey_hash_t shash,
                            uint64_t expiry);
 
-        /// \brief Receives a transaction for Toer Nolan Swap.
+        /// \brief Receives a transaction for Tier Nolan Swap.
         ///
         /// Generates a transaction for spending a locked transaction and
         /// submits it for execution.
@@ -68,6 +68,24 @@ namespace cbdc {
                             uint64_t expiry,
                             cbdc::pubkey_t sender_key,
                             cbdc::pubkey_t payee);
+
+        /// \brief Refunds a transaction for Tier Nolan Swap (tnswap).
+        ///
+        /// Generates a refund transaction to recover funds from an expired
+        /// tnswap lock using the original sender's key and hash lock.
+        /// \param input_tx The input transaction to be refunded.
+        /// \param expiry_time The expiration time for the transaction.
+        /// \param sender_payee The sender's public key.
+        /// \param receiver_key The receiver's public key.
+        /// \param sk_hash The secret key hash used in the original lock.
+        /// \return An optional transaction. Contains a transaction if successful.
+        std::optional<cbdc::transaction::full_tx>
+        refund_transaction(cbdc::transaction::swap_wallet& wallet,
+                            const transaction::input& prev_input,
+                            const uint64_t expiry_time,
+                            const pubkey_t& sender_addr,
+                            const pubkey_t& receiver_addr,
+                            const skey_hash_t& sk_hash);                           
 
 
       private:
