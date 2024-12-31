@@ -31,16 +31,16 @@ namespace cbdc::transaction {
     /// \brief Specialized cryptographic wallet for Toer Nolan Swap (tnswap) transactions.
     ///
     /// Provides functionality for creating, signing, and managing transactions
-    /// specific to Tier Nolan Swap operations. Extends the base wallet functionality
-    /// by adding support for tnswap-specific transaction flows.
+    /// specific to Tier Nolan Swap operations. Extends the base wallet
+    /// functionality by adding support for tnswap-specific transaction flows.
     class swap_wallet : public wallet {
       public:
         swap_wallet() {}
 
         /// \brief Creates an initial transaction for Toer Nolan Swap (tnswap).
         ///
-        /// Generates a transaction that initiates a tnswap by locking a specified
-        /// amount with a hash-based lock for the specified payee.
+        /// Generates a transaction that initiates a tnswap by locking a
+        /// specified amount with a hash-based lock for the specified payee.
         /// \param amount The amount to lock in the transaction.
         /// \param payee The public key of the recipient.
         /// \param s_hash The secret key hash to use for locking.
@@ -53,9 +53,9 @@ namespace cbdc::transaction {
 
         /// \brief Creates a receive transaction for Toer Nolan Swap (tnswap).
         ///
-        /// Generates a transaction that spends a previously locked tnswap input
-        /// by unlocking it with the sender's key and transferring the output
-        /// to the receiver's key.
+        /// Generates a transaction that spends a previously locked tnswap
+        /// input by unlocking it with the sender's key and transferring the
+        /// output to the receiver's key.
         /// \param input_tx The input transaction to be spent.
         /// \param expiry_time The expiration time for the transaction.
         /// \param sender_payee The sender's public key.
@@ -63,7 +63,7 @@ namespace cbdc::transaction {
         /// \param sk The secret key to unlock the input.
         /// \return An optional transaction. Contains a transaction if successful.
         auto
-        create_txn_tnswap_receive(const std::vector<transaction::input>& prev_inputs,
+        create_txn_tnswap_receive(const transaction::input& input_tx,
                                   const uint64_t expiry_time,
                                   const pubkey_t& sender_payee,
                                   const pubkey_t& receiver_key,
@@ -72,14 +72,14 @@ namespace cbdc::transaction {
         /// \brief Creates a refund transaction for Toer Nolan Swap (tnswap).
         ///
         /// Generates a refund transaction to recover funds from an expired
-        /// tnswap lock using the original sender's key and hash lock.
+        /// tnswap lock using the original sender's key-hash.
         /// \param input_tx The input transaction to be refunded.
         /// \param expiry_time The expiration time for the transaction.
         /// \param sender_payee The sender's public key.
         /// \param receiver_key The receiver's public key.
         /// \param sk_hash The secret key hash used in the original lock.
         /// \return An optional transaction. Contains a transaction if successful.
-        auto create_txn_tnswap_refund(const std::vector<transaction::input>& prev_inputs,
+        auto create_txn_tnswap_refund(const transaction::input& input_tx,
                                       const uint64_t expiry_time,
                                       const pubkey_t& sender_payee,
                                       const pubkey_t& receiver_key,
@@ -92,12 +92,12 @@ namespace cbdc::transaction {
         /// perform tnswap operations.
         /// \return A pair containing the secret key and its hash.
         auto generate_skey() -> std::pair<skey_t, skey_hash_t>;
-        
+
         /// \brief Sets the default expiration time for tnswap transactions.
         ///
         /// Configures the timeout duration for new transactions.
         /// \param minutes The expiration time in minutes.
-        /// \return The computed expiration time as a Unix timestamp.        
+        /// \return The computed expiration time as a Unix timestamp.
         auto set_expiry(uint32_t minutes) -> uint64_t;
 
         /// \brief Retrieves the public key associated with a specific tnswap session.
@@ -110,8 +110,8 @@ namespace cbdc::transaction {
 
         /// \brief Retrieves the secret key associated with a specific hash.
         ///
-        /// Searches for and returns the secret key linked to the provided hash.
-        /// \param hash The hash of the secret key to search for.
+        /// Searches for and returns the secret key linked to the provided
+        /// hash. \param hash The hash of the secret key to search for.
         /// \return The secret key, if found.
         auto getskey(skey_hash_t hash) -> std::optional<skey_t>;
 
@@ -120,7 +120,6 @@ namespace cbdc::transaction {
         auto current_shash() -> skey_hash_t {
             return m_current_skey_hash;
         };
-
 
         /// \brief Confirms a transaction by importing its outputs as inputs.
         ///
@@ -156,14 +155,13 @@ namespace cbdc::transaction {
         void sign_tnswap_refund(transaction::full_tx& tx,
                                 const pubkey_t& pubkey) const;
 
-
-
         /// Mutex for thread-safe access to secret keys.
         mutable std::shared_mutex m_sk_mut;
 
         /// Stores secret keys and their corresponding hashes.
-        std::unordered_map<skey_hash_t, skey_t, hashing::const_sip_hash<skey_t>>
-            m_skeys;
+        std::
+            unordered_map<skey_hash_t, skey_t, hashing::const_sip_hash<skey_t>>
+                m_skeys;
 
         /// Tracks public keys for active swap sessions by secret key hash.
         std::unordered_map<skey_hash_t,

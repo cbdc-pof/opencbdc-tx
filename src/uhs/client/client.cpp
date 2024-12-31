@@ -363,8 +363,10 @@ namespace cbdc {
                            cbdc::skey_hash_t shash,
                            uint64_t expiry) {
 
-        return m_client_transaction_handler->create_transaction(m_wallet, amount, payee, shash, expiry);
-
+        auto ret = m_client_transaction_handler->create_transaction(m_wallet, amount, payee, shash, expiry);
+        if (ret)
+            save();
+        return ret;
     }
 
     std::optional<cbdc::transaction::full_tx>
@@ -374,20 +376,28 @@ namespace cbdc {
                             cbdc::pubkey_t sender_addr,
                             cbdc::pubkey_t receiver_addr) {
 
-        return m_client_transaction_handler->receive_transaction(m_wallet, prev_input, skey, expiry, sender_addr, receiver_addr);
+        auto ret = m_client_transaction_handler->receive_transaction(m_wallet, prev_input, skey, expiry, sender_addr, receiver_addr);
+        if (ret)
+            save();
+        return ret;
+
 
     }
     std::optional<cbdc::transaction::full_tx>
         client::refund_transaction(
                             const transaction::input& prev_input,
-                            const uint64_t expiry,
-                            const pubkey_t& sender_addr,
-                            const pubkey_t& receiver_addr,
-                            const skey_hash_t& sk_hash) {
-        return m_client_transaction_handler->refund_transaction(m_wallet, prev_input, expiry, sender_addr, receiver_addr, sk_hash);    
+                             uint64_t expiry,
+                             pubkey_t sender_addr,
+                             pubkey_t receiver_addr,
+                             skey_hash_t sk_hash) {
+        auto ret = m_client_transaction_handler->refund_transaction(m_wallet, prev_input, expiry, sender_addr, receiver_addr, sk_hash);
+        if (ret)
+            save();
+        return ret;
     }
 
     std::pair<skey_t, skey_hash_t> client::generate_secret_pair_swap() {
+        // TODO - can be part of save() in future
         return m_wallet.generate_skey();
     }
 

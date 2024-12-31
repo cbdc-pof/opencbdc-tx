@@ -210,11 +210,11 @@ auto tnswap_init_send([[maybe_unused]] cbdc::client& client,
         return false;
     }
 
-    const size_t i = 6;
-    uint32_t amount = static_cast<uint32_t>(std::stoul(args[i]));
-    auto payee = cbdc::address::decode(args[i + 1]);
-    auto shash = cbdc::hash_from_hex(args[i + 2]);
-    uint64_t expiry = std::stoull(args[i + 3]);
+    const size_t tnswap_command_index = 6;
+    uint32_t amount = static_cast<uint32_t>(std::stoul(args[tnswap_command_index]));
+    auto payee = cbdc::address::decode(args[tnswap_command_index + 1]);
+    auto shash = cbdc::hash_from_hex(args[tnswap_command_index + 2]);
+    uint64_t expiry = std::stoull(args[tnswap_command_index + 3]);
 
     if(!payee.has_value()) {
         std::cout << "Invalid Pub key" << std::endl;
@@ -238,16 +238,6 @@ auto tnswap_init_send([[maybe_unused]] cbdc::client& client,
     }
 }
 
-auto tnswap_info([[maybe_unused]] cbdc::client& client,
-                 [[maybe_unused]] const std::vector<std::string>& args)
-    -> bool {
-    return true;
-}
-auto tnswap_join_send([[maybe_unused]] cbdc::client& client,
-                      [[maybe_unused]] const std::vector<std::string>& args)
-    -> bool {
-    return true;
-}
 
 auto tnswap_receive([[maybe_unused]] cbdc::client& client,
                     [[maybe_unused]] const std::vector<std::string>& args)
@@ -257,8 +247,8 @@ auto tnswap_receive([[maybe_unused]] cbdc::client& client,
         return false;
     }
 
-    const size_t i = 6;
-    auto buffer = cbdc::buffer::from_hex(args[i]);
+    const size_t tnswap_command_index = 6;
+    auto buffer = cbdc::buffer::from_hex(args[tnswap_command_index]);
     if(!buffer.has_value()) {
         std::cout << "Invalid input encoding." << std::endl;
         return false;
@@ -269,14 +259,14 @@ auto tnswap_receive([[maybe_unused]] cbdc::client& client,
         std::cout << "Invalid input" << std::endl;
         return false;
     }
-    auto skey = cbdc::hash_from_hex(args[i + 1]);
-    uint64_t expiry = std::stoull(args[i + 2]);
-    auto sender_addr = cbdc::address::decode(args[i + 3]);
+    auto skey = cbdc::hash_from_hex(args[tnswap_command_index + 1]);
+    uint64_t expiry = std::stoull(args[tnswap_command_index + 2]);
+    auto sender_addr = cbdc::address::decode(args[tnswap_command_index + 3]);
     if(!sender_addr.has_value()) {
         std::cout << "Invalid Sender pubkey " << std::endl;
         return false;
     }
-    auto receiver_addr = cbdc::address::decode(args[i + 4]);
+    auto receiver_addr = cbdc::address::decode(args[tnswap_command_index + 4]);
     if(!receiver_addr.has_value()) {
         std::cout << "Invalid Session pubkey " << std::endl;
         return false;
@@ -310,8 +300,8 @@ auto tnswap_refund([[maybe_unused]] cbdc::client& client,
         return false;
     }
 
-    const size_t i = 6;
-    auto buffer = cbdc::buffer::from_hex(args[i]);
+    const size_t tnswap_command_index = 6;
+    auto buffer = cbdc::buffer::from_hex(args[tnswap_command_index]);
     if(!buffer.has_value()) {
         std::cout << "Invalid input encoding." << std::endl;
         return false;
@@ -322,20 +312,21 @@ auto tnswap_refund([[maybe_unused]] cbdc::client& client,
         std::cout << "Invalid input" << std::endl;
         return false;
     }
-    auto sk_hash = cbdc::hash_from_hex(args[i + 1]);
-    uint64_t expiry = std::stoull(args[i + 2]);
-    auto sender_addr = cbdc::address::decode(args[i + 3]);
+    auto sk_hash = static_cast<cbdc::skey_hash_t>(cbdc::hash_from_hex(args[tnswap_command_index+ 1]));
+    uint64_t expiry = std::stoull(args[tnswap_command_index+ 2]);
+    auto sender_addr = cbdc::address::decode(args[tnswap_command_index+ 3]);
     if(!sender_addr.has_value()) {
         std::cout << "Invalid Sender pubkey " << std::endl;
         return false;
     }
-    auto receiver_addr = cbdc::address::decode(args[i + 4]);
+    auto receiver_addr = cbdc::address::decode(args[tnswap_command_index+ 4]);
     if(!receiver_addr.has_value()) {
         std::cout << "Invalid Session pubkey " << std::endl;
         return false;
     }
 
     std::cout << "Initiating a refund transaction ..."<<std::endl;
+
 
     // Receive transaction
     auto txn = client.refund_transaction(in.value(),
@@ -364,12 +355,6 @@ auto tnswap_command([[maybe_unused]] cbdc::client& client,
     if(command == "initsend") {
         /* initsend <addr2> <amount> */
         tnswap_init_send(client, args);
-    } else if(command == "info") {
-        // info <witness prog> <txid1>
-        tnswap_info(client, args);
-    } else if(command == "joinsend") {
-        // joinsend <addr1> <amount> <Hs(k)>
-        tnswap_join_send(client, args);
     } else if(command == "receive") {
         // receive <witness prog> <txid> <txhash_sig> <addr>
         tnswap_receive(client, args);
@@ -380,7 +365,8 @@ auto tnswap_command([[maybe_unused]] cbdc::client& client,
     } else if(command == "newsecret") {
         newsecret_command(client);    
     } else {
-        std::cerr << "Unknown command in maswap " << std::endl;
+        std::cerr << "Unknown command in tnswap " << std::endl;
+        std::cerr << "Usage: tnswap initsend|receive|refund|newsecret\n";
     }
 
     return true;

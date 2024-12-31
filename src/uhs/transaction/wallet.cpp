@@ -151,7 +151,7 @@ namespace cbdc {
                 {transaction::validation::get_p2pk_witness_commitment(ret),
                  ret});
         }
-
+        std::cout<<"Key Generated : "<<cbdc::to_string(ret)<<std::endl;    
         return ret;
     }
 
@@ -333,6 +333,7 @@ namespace cbdc {
     }
 
     void transaction::wallet::load(const std::string& wallet_file) {
+
         std::ifstream wal_file(wallet_file, std::ios::binary | std::ios::in);
         if(wal_file.good()) {
             auto deser = istream_serializer(wal_file);
@@ -476,6 +477,7 @@ namespace cbdc {
             transaction::output change_out;
             change_out.m_value = total_amount - amount;
             const auto pubkey = generate_key();
+
             change_out.m_witness_program_commitment
                 = transaction::validation::get_p2pk_witness_commitment(pubkey);
             ret.m_outputs.push_back(change_out);

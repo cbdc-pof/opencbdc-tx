@@ -11,12 +11,12 @@ namespace cbdc::transaction {
     auto swap_wallet::set_expiry(uint32_t mins) -> uint64_t {
         auto now = std::chrono::system_clock::now();
 
-        auto now_plus_10mins = now + std::chrono::minutes(mins);
+        auto now_plus_mins = now + std::chrono::minutes(mins);
 
         // Convert time_point to uint64_t timestamp (seconds since epoch)
         return static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::seconds>(
-                now_plus_10mins.time_since_epoch())
+            std::chrono::duration_cast<std::chrono::minutes>(
+                now_plus_mins.time_since_epoch())
                 .count());
     }
 
@@ -48,11 +48,11 @@ namespace cbdc::transaction {
         return it->second;
     }
 
-
     auto swap_wallet::export_raw_inputs(const transaction::full_tx& tx)
         -> std::vector<transaction::input> {
         const auto tx_id = transaction::tx_id(tx);
-        std::cout<<"preparing for exportng raw inputs..."<<tx.m_outputs.size()<<std::endl;
+        std::cout << "preparing for exportng raw inputs..."
+                  << tx.m_outputs.size() << std::endl;
         std::vector<transaction::input> new_utxos;
         {
             for(uint32_t i = 0; i < tx.m_outputs.size(); i++) {
@@ -60,7 +60,7 @@ namespace cbdc::transaction {
                     transaction::input_from_output(tx, i, tx_id).value());
             }
         }
-        std::cout<<"Inputs Size: "<<new_utxos.size()<<std::endl;    
+        std::cout << "Inputs Size: " << new_utxos.size() << std::endl;
         return new_utxos;
     }
 
@@ -114,19 +114,19 @@ namespace cbdc::transaction {
         return ret;
     }
 
-    auto swap_wallet::create_txn_tnswap_receive(const std::vector<transaction::input>& prev_inputs,
-                                                const uint64_t expiry_time,
-                                                const pubkey_t& sender_payee,
-                                                const pubkey_t& receiver_key,
-                                                const skey_t& sk)
-        -> std::optional<full_tx> {
+    auto swap_wallet::create_txn_tnswap_receive(
+        const transaction::input& prev_input,
+        const uint64_t expiry_time,
+        const pubkey_t& sender_payee,
+        const pubkey_t& receiver_key,
+        const skey_t& sk) -> std::optional<full_tx> {
         auto ret = full_tx();
+        ret.m_inputs.push_back(prev_input);
 
-        /* swap txn have only one input */
-        assert(prev_inputs.size() == 1);
+        // The swap operation is applicable only for a single UTXO when there
+        // is exactly one unit of currency.
+        ret.m_witness.resize(1);
 
-        ret.m_inputs.push_back(prev_inputs[0]);
-        ret.m_witness.resize(prev_inputs.size());
         transaction::output destination_out;
         destination_out.m_value = ret.m_inputs[0].m_prevout_data.m_value;
 
@@ -136,7 +136,8 @@ namespace cbdc::transaction {
 
         ret.m_outputs.push_back(destination_out);
         auto& witness = ret.m_witness[0];
-        // sig must be part here
+
+        // signature must be part
         witness.resize(transaction::validation::tnswap_receive_witness_len);
         witness[0] = std::byte(
             transaction::validation::witness_program_type::tnswap_receive);
@@ -151,7 +152,8 @@ namespace cbdc::transaction {
             = transaction::validation::get_tnswap_receive_wit_commit(wit_data);
 
         std::cout << "Hash of tnswap_receive_witness_data: "
-                  << cbdc::to_string(hh) << std::endl;
+                  << cbdc::to_string(hh) << std::endl
+                  << "Receiver Payee: " << cbdc::to_string(receiver_key);
 
         auto buffer
             = transaction::validation::pack_tnswap_receive_witness_data(
@@ -168,23 +170,20 @@ namespace cbdc::transaction {
         return ret;
     }
 
-    auto swap_wallet::create_txn_tnswap_refund(const std::vector<transaction::input>& prev_inputs,
-                                               const uint64_t expiry_time,
-                                               const pubkey_t& sender_payee,
-                                               const pubkey_t& receiver_key,
-                                               const skey_hash_t& sk_hash)
-        -> std::optional<full_tx> {
+    auto swap_wallet::create_txn_tnswap_refund(
+        const transaction::input& prev_input,
+        const uint64_t expiry_time,
+        const pubkey_t& sender_payee,
+        const pubkey_t& receiver_key,
+        const skey_hash_t& sk_hash) -> std::optional<full_tx> {
         auto ret = full_tx();
 
-        /* swap txn have only one input */
-        assert(prev_inputs.size() == 1);
-
-        ret.m_inputs.push_back(prev_inputs[0]);
-        ret.m_witness.resize(prev_inputs.size());
+        ret.m_inputs.push_back(prev_input);
+        // The swap operation is applicable only for a single UTXO when there
+        // is exactly one unit of currency.
+        ret.m_witness.resize(1);
         transaction::output destination_out;
         destination_out.m_value = ret.m_inputs[0].m_prevout_data.m_value;
-        ;
-
         destination_out.m_witness_program_commitment
             = transaction::validation::get_p2pk_witness_commitment(
                 receiver_key);
@@ -203,6 +202,14 @@ namespace cbdc::transaction {
         wit_data.m_sk_hash = sk_hash;
         auto buffer = transaction::validation::pack_tnswap_refund_witness_data(
             wit_data);
+
+        auto hh
+            = transaction::validation::get_tnswap_refund_wit_commit(wit_data);
+
+        std::cout << "Hash of tnswap_refund_witness_data: "
+                  << cbdc::to_string(hh) << std::endl
+                  << "Sender Payee: " << cbdc::to_string(sender_payee);
+
         std::memcpy(
             &witness[sizeof(transaction::validation::witness_program_type)],
             buffer.data(),
@@ -221,7 +228,12 @@ namespace cbdc::transaction {
 
         // TODO should be present
         auto it = m_keys.find(pubkey);
-        assert(it != m_keys.end());
+        if(it == m_keys.end()) {
+            std::cout << "Error: Key [" << cbdc::to_string(pubkey)
+                      << "] must be present in wallet\n";
+            assert(it != m_keys.end());
+            return;
+        }
 
         pubkey_t seckey = it->second;
         assert(tx.m_inputs.size() == 1);

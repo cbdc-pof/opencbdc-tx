@@ -105,24 +105,13 @@ namespace cbdc::transaction::validation {
 
         cbdc::buffer buffer{};
         buffer.append(&time_expiry, sizeof(time_expiry));
-        // std::cout<<"get_tnswap_wit_commit expiry time:
-        // "<<time_expiry<<std::endl; std::cout<<"\t m_sender_pubkey:
-        // "<<cbdc::to_string(sender_pubk)<<std::endl;
         buffer.append(sender_pk_hash.data(), sender_pk_hash.size());
-        // std::cout<<"\t m_sender_pubkey_hash:
-        // "<<cbdc::to_string(sender_pk_hash)<<std::endl;
         buffer.append(receiver_pk_hash.data(), receiver_pk_hash.size());
-        // std::cout<<"\t receiver_pk_hash:
-        // "<<cbdc::to_string(receiver_pk_hash)<<std::endl;
-        //  std::cout<<"\t receiver_pk: "<<cbdc::to_string(payee)<<std::endl;
         buffer.append(sk_hash.data(), sk_hash.size());
-        // std::cout<<"\t sk_hash: "<<cbdc::to_string(sk_hash)<<std::endl;
         CSHA256 sha;
 
         sha.Write(buffer.c_ptr(), buffer.size());
         sha.Finalize(ret.data());
-        // std::cout<<"get_tnswap_wit_commit hash :
-        // "<<cbdc::to_string(ret)<<std::endl;
         return ret;
     }
 
@@ -131,23 +120,16 @@ namespace cbdc::transaction::validation {
         hash_t ret;
         cbdc::buffer buffer{};
         buffer.append(&wit.m_expiry_time, sizeof(wit.m_expiry_time));
-        // std::cout<<"Wit expiry time: "<<wit.m_expiry_time<<std::endl;
         buffer.append(wit.m_sender_pubkey_hash.data(),
                       wit.m_sender_pubkey_hash.size());
-        // std::cout<<"m_sender_pubkey_hash:
-        // "<<cbdc::to_string(wit.m_sender_pubkey_hash)<<std::endl;
         hash_t rec_pubkey_hash = hash_data(wit.m_receiver_pubkey);
-        // std::cout<<"m_receiver_pubkey:
-        // "<<cbdc::to_string(wit.m_receiver_pubkey)<<std::endl;
         buffer.append(rec_pubkey_hash.data(), rec_pubkey_hash.size());
         hash_t sk_hash = hash_data(wit.m_sk);
-        // std::cout<<"m_sk: "<<cbdc::to_string(wit.m_sk)<<std::endl;
         buffer.append(sk_hash.data(), sk_hash.size());
         CSHA256 sha;
 
         sha.Write(buffer.c_ptr(), buffer.size());
         sha.Finalize(ret.data());
-        // std::cout<<"hash : "<<cbdc::to_string(ret)<<std::endl;
         return ret;
     }
 
@@ -230,7 +212,6 @@ namespace cbdc::transaction::validation {
         -> std::optional<witness_error_code> {
         const auto& wit = tx.m_witness[idx];
         if(wit.size() != tnswap_receive_witness_len) {
-            std::cout << "tnswap_receive_witness_len is incorrect\n";
             return witness_error_code::malformed;
         }
 
@@ -256,6 +237,7 @@ namespace cbdc::transaction::validation {
                 now.time_since_epoch())
                 .count());
         if(now_timestamp <= data.m_expiry_time) {
+            std::cerr<<"Witness Failed with Time Early Error \n";
             return witness_error_code::time_early_error;
         }
 
@@ -338,7 +320,6 @@ namespace cbdc::transaction::validation {
                                                      idx,
                                                      wit.m_receiver_pubkey);
         if(witness_sig_err) {
-            std::cout << "receive witness SIG not matched \n";
             return witness_sig_err;
         }
 
@@ -348,6 +329,7 @@ namespace cbdc::transaction::validation {
     auto check_tnswap_refund_witness(const transaction::full_tx& tx,
                                      size_t idx)
         -> std::optional<witness_error_code> {
+        
         auto maybe_error = unpack_tnswap_refund_witness_data(tx, idx);
         if(maybe_error.first) {
             return maybe_error.first;

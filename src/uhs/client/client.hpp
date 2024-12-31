@@ -291,10 +291,10 @@ namespace cbdc {
         /// \return An optional transaction. Contains a transaction if successful.
         std::optional<cbdc::transaction::full_tx>
         refund_transaction(const transaction::input& prev_input,
-                            const uint64_t expiry_time,
-                            const pubkey_t& sender_addr,
-                            const pubkey_t& receiver_addr,
-                            const skey_hash_t& sk_hash);
+                            uint64_t expiry_time,
+                            pubkey_t sender_addr,
+                            pubkey_t receiver_addr,
+                            skey_hash_t sk_hash);
 
         std::pair<skey_t, skey_hash_t> generate_secret_pair_swap();                                 
 

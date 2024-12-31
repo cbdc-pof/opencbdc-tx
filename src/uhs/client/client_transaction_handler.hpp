@@ -17,7 +17,7 @@
 
 namespace cbdc {
 
-    /// \brief Handles transaction processing and execution for wallets.
+    /// \brief Handles transaction processing and execution for wallets for tnswap.
     ///
     /// Provides functionality to execute transactions, including specialized
     /// member functions for creating and receiving transactions in Tier Nolan
@@ -31,7 +31,7 @@ namespace cbdc {
         /// \param sentinel_client Reference to the sentinel RPC client.
         /// \param logger Shared pointer to the logging system.
         client_transaction_handler(
-            cbdc::sentinel::rpc::client &sentinel_client,
+            cbdc::sentinel::rpc::client& sentinel_client,
             std::shared_ptr<cbdc::logging::log> logger);
 
         /// \brief Creates a transaction for Tier Nolan Swap.
@@ -81,12 +81,11 @@ namespace cbdc {
         /// \return An optional transaction. Contains a transaction if successful.
         std::optional<cbdc::transaction::full_tx>
         refund_transaction(cbdc::transaction::swap_wallet& wallet,
-                            const transaction::input& prev_input,
-                            const uint64_t expiry_time,
-                            const pubkey_t& sender_addr,
-                            const pubkey_t& receiver_addr,
-                            const skey_hash_t& sk_hash);                           
-
+                           const transaction::input& prev_input,
+                           uint64_t expiry_time,
+                           pubkey_t sender_addr,
+                           pubkey_t receiver_addr,
+                           skey_hash_t sk_hash);
 
       private:
         /// \brief Executes a transaction asynchronously.
@@ -99,8 +98,8 @@ namespace cbdc {
         std::future<bool> execute_txn(cbdc::transaction::swap_wallet& wallet,
                                       const cbdc::transaction::full_tx& txn);
 
-        cbdc::sentinel::rpc::client
-            &m_sentinel_client; ///< Sentinel RPC client reference.
+        cbdc::sentinel::rpc::client&
+            m_sentinel_client; ///< Sentinel RPC client reference.
         std::shared_ptr<cbdc::logging::log>
             m_logger; ///< Shared logger instance.
     };
