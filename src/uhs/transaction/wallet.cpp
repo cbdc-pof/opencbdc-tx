@@ -151,7 +151,6 @@ namespace cbdc {
                 {transaction::validation::get_p2pk_witness_commitment(ret),
                  ret});
         }
-        std::cout<<"Key Generated : "<<cbdc::to_string(ret)<<std::endl;    
         return ret;
     }
 
