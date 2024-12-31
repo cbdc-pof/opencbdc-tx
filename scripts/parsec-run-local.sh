@@ -2,8 +2,8 @@
 
 IP="localhost"
 PORT="8888"
-RUNNER_TYPE="evm"
-LOGLEVEL="WARN"
+RUNNER_TYPE="lua"
+LOGLEVEL="TRACE"
 
 function print_help() {
     echo "Usage: parsec-run-local.sh [OPTIONS]"

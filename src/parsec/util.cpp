@@ -207,6 +207,8 @@ namespace cbdc::parsec {
             auto ticket_number
                 = std::get<cbdc::parsec::ticket_machine::ticket_number_type>(
                     begin_ret);
+            std::cout << "Ticket Number allocated " << ticket_number
+                      << std::endl;
             auto lock_res = broker->try_lock(
                 ticket_number,
                 key,
@@ -216,6 +218,8 @@ namespace cbdc::parsec {
                         result_callback(false);
                         return;
                     }
+                    std::cout << " Calling broker commit for " << ticket_number
+                              << std::endl;
                     auto commit_res = broker->commit(
                         ticket_number,
                         {{key, value}},

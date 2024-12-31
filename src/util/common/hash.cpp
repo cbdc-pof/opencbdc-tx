@@ -48,4 +48,12 @@ namespace cbdc {
 
         return ret;
     }
+
+    auto hash_data(const std::span<const unsigned char> data) -> hash_t {
+        hash_t ret;
+        CSHA256 sha;
+        sha.Write(data.data(), data.size());
+        sha.Finalize(ret.data());
+        return ret;
+    }
 }

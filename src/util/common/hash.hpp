@@ -7,7 +7,7 @@
 #define OPENCBDC_TX_SRC_COMMON_HASH_H_
 
 #include "crypto/siphash.h"
-
+#include <span>
 #include <array>
 #include <sstream>
 
@@ -33,6 +33,12 @@ namespace cbdc {
     /// \param len the number of bytes of the data to hash.
     /// \return the hash of the data.
     auto hash_data(const std::byte* data, size_t len) -> hash_t;
+
+    /// Calculates the SHA256 hash of the specified data.
+    /// \param arr unsigned char array containing data to hash.
+    /// \return the hash of the data.
+    auto hash_data(const std::span<const unsigned char> data)
+        -> hash_t;
 }
 
 #endif // OPENCBDC_TX_SRC_COMMON_HASH_H_

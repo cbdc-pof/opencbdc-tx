@@ -65,8 +65,10 @@ namespace cbdc {
         : m_opts(std::move(opts)),
           m_logger(std::move(logger)),
           m_sentinel_client(m_opts.m_sentinel_endpoints, m_logger),
+          //m_wallet(m_logger),
           m_client_file(std::move(client_file)),
-          m_wallet_file(std::move(wallet_file)) {}
+          m_wallet_file(std::move(wallet_file))
+          {}
 
     auto client::init() -> bool {
         if(std::filesystem::exists(m_wallet_file)) {
@@ -81,6 +83,8 @@ namespace cbdc {
             m_logger->error("Failed to initialize sentinel client.");
             return false;
         }
+
+        m_client_transaction_handler = std::make_shared<client_transaction_handler>(client_transaction_handler(m_sentinel_client, m_logger));
 
         return init_derived();
     }
@@ -198,6 +202,11 @@ namespace cbdc {
                                     const pubkey_t& payee)
         -> std::vector<transaction::input> {
         return transaction::wallet::export_send_inputs(send_tx, payee);
+    }
+
+    auto client::export_send_inputs(const transaction::full_tx& send_tx)
+        -> std::vector<transaction::input> {
+            return transaction::swap_wallet::export_raw_inputs(send_tx);
     }
 
     void client::import_send_input(const transaction::input& in) {
@@ -347,4 +356,52 @@ namespace cbdc {
         -> std::unordered_map<hash_t, transaction::input, hashing::null> {
         return m_pending_inputs;
     }
+
+    std::optional<cbdc::transaction::full_tx>
+        client::create_transaction(uint32_t amount,
+                           cbdc::pubkey_t payee,
+                           cbdc::skey_hash_t shash,
+                           uint64_t expiry) {
+
+        auto ret = m_client_transaction_handler->create_transaction(m_wallet, amount, payee, shash, expiry);
+        if (ret)
+            save();
+        return ret;
+    }
+
+    std::optional<cbdc::transaction::full_tx>
+        client::receive_transaction(const cbdc::transaction::input& prev_input,
+                            cbdc::skey_t skey,
+                            uint64_t expiry,
+                            cbdc::pubkey_t sender_addr,
+                            cbdc::pubkey_t receiver_addr) {
+
+        auto ret = m_client_transaction_handler->receive_transaction(m_wallet, prev_input, skey, expiry, sender_addr, receiver_addr);
+        if (ret)
+            save();
+        return ret;
+
+
+    }
+    std::optional<cbdc::transaction::full_tx>
+        client::refund_transaction(
+                            const transaction::input& prev_input,
+                             uint64_t expiry,
+                             pubkey_t sender_addr,
+                             pubkey_t receiver_addr,
+                             skey_hash_t sk_hash) {
+        auto ret = m_client_transaction_handler->refund_transaction(m_wallet, prev_input, expiry, sender_addr, receiver_addr, sk_hash);
+        if (ret)
+            save();
+        return ret;
+    }
+
+    std::pair<skey_t, skey_hash_t> client::generate_secret_pair_swap() {
+        // TODO - can be part of save() in future
+        return m_wallet.generate_skey();
+    }
+
+    std::optional<pubkey_t> client::get_tnswap_session_key(cbdc::skey_hash_t s_hash) {
+        return m_wallet.get_pubkey_swap_session(s_hash);
+    } 
 }

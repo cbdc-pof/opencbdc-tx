@@ -7,6 +7,8 @@
 #define OPENCBDC_TX_SRC_TRANSACTION_WALLET_H_
 
 #include "uhs/transaction/transaction.hpp"
+#include "uhs/transaction/validation.hpp"
+#include "uhs/transaction/tnswap_validation.hpp"
 #include "util/common/config.hpp"
 #include "util/common/hashmap.hpp"
 #include "util/common/random_source.hpp"
@@ -23,6 +25,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 
 namespace cbdc::transaction {
     /// \brief Cryptographic wallet for digital currency assets and secrets.
@@ -61,6 +64,7 @@ namespace cbdc::transaction {
         auto send_to(uint32_t amount, const pubkey_t& payee, bool sign_tx)
             -> std::optional<full_tx>;
 
+
         /// \brief Generates a new send transaction with the specified number
         ///        of inputs and outputs.
         ///
@@ -80,6 +84,7 @@ namespace cbdc::transaction {
                      size_t output_count,
                      const pubkey_t& payee,
                      bool sign_tx) -> std::optional<full_tx>;
+
 
         /// \brief Generates a transaction sending multiple outputs of a set
         ///        value.
@@ -246,8 +251,32 @@ namespace cbdc::transaction {
 
         // TODO: currently this map grows unbounded, we need to garbage
         //       collect it
-        std::unordered_map<hash_t, pubkey_t, hashing::const_sip_hash<hash_t>>
+        using witness_program_type = std::variant<
+            pubkey_t,
+            cbdc::transaction::validation::tnswap_witness_program>;
+
+        std::unordered_map<hash_t,
+                           witness_program_type,
+                           hashing::const_sip_hash<hash_t>>
             m_witness_programs;
+
+        template<typename T>
+        std::optional<T> get_value(const hash_t& key) const {
+            auto it = m_witness_programs.find(key);
+            if(it != m_witness_programs.end()) {
+                if(auto ptr = std::get_if<T>(&it->second)) {
+                    return *ptr;
+                }
+            }
+            return std::nullopt;
+        }
+
+        template<typename T>
+        void insert_or_update(const hash_t& key, const T& value) {
+            m_witness_programs[key] = value;
+        }
+
+        friend class swap_wallet;
 
         /// Creates a new input from the seed set based on the parameters
         /// passed in a preceding call to the \ref seed function.

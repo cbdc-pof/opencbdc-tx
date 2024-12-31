@@ -85,6 +85,7 @@ namespace cbdc::parsec::broker {
                     std::unique_lock l(m_mut);
                     auto it = m_tickets.find(ticket_number);
                     if(it == m_tickets.end()) {
+                        m_log->error("Unknown key ", ticket_number);
                         return error_code::unknown_ticket;
                     }
 
@@ -126,6 +127,7 @@ namespace cbdc::parsec::broker {
                     return e;
                 }},
             res);
+
         result_callback(result);
     }
 
@@ -137,9 +139,13 @@ namespace cbdc::parsec::broker {
             std::unique_lock l(m_mut);
             auto it = m_tickets.find(ticket_number);
             if(it == m_tickets.end()) {
+                std::cout << "Unknown Ticket Number" << ticket_number
+                          << std::endl;
                 return error_code::unknown_ticket;
             }
 
+            std::cout << " Broker trylocking the tic num: "
+                      << ticket_number << " for key "<<key.to_hex()<<std::endl;
             auto t_state = it->second;
             switch(t_state->m_state) {
                 case ticket_state::begun:
@@ -410,6 +416,7 @@ namespace cbdc::parsec::broker {
                 }
             }
             for(auto& update_key : state_updates) {
+                m_log->trace("Update Key ", update_key.first.to_hex());
                 if(keys_with_tickets.find(update_key.first)
                    == keys_with_tickets.end()) {
                     /// We should fail here, because if this transaction has
@@ -417,7 +424,7 @@ namespace cbdc::parsec::broker {
                     /// the keys, something signficant has gone wrong, likely
                     /// associated with the contract itself.
                     m_log->error("Update map contains keys not associated "
-                                 "with tickets. Aborting.");
+                                 "with tickets. Aborting., Reason", update_key.first.to_hex());
                     return error_code::commit_hazard;
                 }
             }
@@ -743,20 +750,26 @@ namespace cbdc::parsec::broker {
                 m_log->error("Unknown ticket number");
                 return error_code::unknown_ticket;
             }
-
             auto tss = ticket->second;
             switch(tss->m_state) {
                 case ticket_state::begun:
                     break;
                 case ticket_state::prepared:
+                    m_log->trace(
+                        "handle_find_key return ticket_state::prepared");
                     return error_code::prepared;
                 case ticket_state::committed:
+                    m_log->trace(
+                        "handle_find_key return ticket_state::committed");
                     return error_code::committed;
                 case ticket_state::aborted:
+                    m_log->trace("handle_find_key return error_code::aborted");
                     return error_code::aborted;
             }
 
             if(!res.has_value()) {
+                m_log->trace("handle_find_key return "
+                             "error_code::directory_unreachable");
                 return error_code::directory_unreachable;
             }
 
@@ -768,6 +781,8 @@ namespace cbdc::parsec::broker {
                && it->second.m_key_state == key_state::locked
                && it->second.m_locktype >= locktype) {
                 assert(it->second.m_value.has_value());
+                m_log->trace(
+                    "handle_find_key return it->second.m_value.value()");
                 return it->second.m_value.value();
             }
 
@@ -790,7 +805,6 @@ namespace cbdc::parsec::broker {
                                    result_callback,
                                    lock_res);
                    })) {
-                m_log->error("Failed to make try_lock shard request");
                 return error_code::shard_unreachable;
             }
             return std::nullopt;

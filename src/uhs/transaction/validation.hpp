@@ -19,7 +19,9 @@
 namespace cbdc::transaction::validation {
     /// Specifies how validators should interpret the witness program
     enum class witness_program_type : uint8_t {
-        p2pk = 0x0 ///< Pay to Public Key
+        p2pk = 0x0, ///< Pay to Public Key
+        tnswap_receive, // NEW: TierNolan Atomic Swap
+        tnswap_refund
     };
 
     static constexpr auto p2pk_witness_prog_len
@@ -55,6 +57,8 @@ namespace cbdc::transaction::validation {
         uint64_t m_idx{};
     };
 
+
+
     /// Types of errors that may occur when sentinels validate witness
     /// commitments
     enum class witness_error_code : uint8_t {
@@ -67,7 +71,11 @@ namespace cbdc::transaction::validation {
         program_mismatch,
         ///< The witness's specified program doesn't match its commitment
         invalid_public_key, ///< The witness's public key is invalid
-        invalid_signature   ///< The witness's signature is invalid
+        invalid_signature,   ///< The witness's signature is invalid
+        time_expired_error,
+        time_early_error,
+        sk_mismatch_error,
+        sk_equal_error
     };
 
     /// Types of errors that may occur when a sentinel statically validates a
@@ -140,6 +148,7 @@ namespace cbdc::transaction::validation {
     auto check_p2pk_witness_signature(const transaction::full_tx& tx,
                                       size_t idx)
         -> std::optional<witness_error_code>;
+
     auto check_input_count(const transaction::full_tx& tx)
         -> std::optional<tx_error>;
     auto check_output_count(const transaction::full_tx& tx)
@@ -151,6 +160,7 @@ namespace cbdc::transaction::validation {
     auto check_output_value(const transaction::output& out)
         -> std::optional<output_error_code>;
     auto get_p2pk_witness_commitment(const pubkey_t& payee) -> hash_t;
+
     auto to_string(const tx_error& err) -> std::string;
 
     /// Validates the sentinel attestations attached to a compact transaction.

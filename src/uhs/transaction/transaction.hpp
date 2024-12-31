@@ -11,11 +11,14 @@
 #include "util/common/keys.hpp"
 #include "util/serialization/format.hpp"
 #include "util/serialization/util.hpp"
-
+#include <variant>
 #include <cstdint>
 #include <optional>
 
 namespace cbdc::transaction {
+
+ 
+
     /// \brief The unique identifier of a specific \ref output from
     ///        a transaction
     ///
@@ -40,6 +43,22 @@ namespace cbdc::transaction {
         out_point() = default;
     };
 
+    // /// Hash of the tnswap witness program
+    // struct tnswap_wit_commit_t {
+    //      hash_t m_sender;
+    //      hash_t m_receiver;
+    //      hash_t m_sk_hash;
+    // };
+
+    // static constexpr const int tnswap_hash_size = 32 * 3;
+    // using tswap_witness_commit_ser_t = std::array<unsigned char, tnswap_hash_size>; 
+
+    // auto parse_tnswap_commitment(tswap_witness_commit_ser_t bytes) -> tnswap_wit_commit_t;
+
+    // auto pack_tnswap_commitment(tnswap_wit_commit_t wit) -> tswap_witness_commit_ser_t;
+
+    // using commit_t =  std::variant<hash_t, tswap_witness_commit_ser_t>;
+    
     /// \brief An output of a transaction
     ///
     /// An output created by a transaction.
@@ -50,9 +69,15 @@ namespace cbdc::transaction {
         /// Hash of the witness program
         hash_t m_witness_program_commitment{};
 
+        // hash_t m_wit_commit_refund{};
+
+        // hash_t m_wit_commit_sk_hash{};
+
         /// The integral value of the output, in atomic units of currency
         uint64_t m_value{0};
 
+        ///uint64_t m_time_expiry{0};
+        
         auto operator==(const output& rhs) const -> bool;
         auto operator!=(const output& rhs) const -> bool;
 
@@ -60,6 +85,15 @@ namespace cbdc::transaction {
 
         output() = default;
     };
+
+
+    // template <typename T>
+    // auto get_commit(commit_t val) -> std::optional<T> {
+    //     if (auto tval = std::get_if<T>(&val))
+    //         return *tval;
+    //     }
+    //     return std::nullopt;
+    // }
 
     /// \brief An input for a new transaction
     ///
@@ -81,6 +115,7 @@ namespace cbdc::transaction {
 
         input() = default;
     };
+    
 
     /// \brief A complete transaction
     ///

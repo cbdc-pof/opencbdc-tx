@@ -27,7 +27,8 @@ add_executable(run_unit_tests archiver_test.cpp
                               watchtower/block_cache_test.cpp
                               watchtower/error_cache_test.cpp
                               watchtower/tx_error_messages_test.cpp
-                              watchtower/watchtower_test.cpp)
+                              watchtower/watchtower_test.cpp
+                              tnswap_validation_test.cpp)
 
 add_subdirectory(parsec)
 

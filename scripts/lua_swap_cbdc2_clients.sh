@@ -2,8 +2,8 @@
 
 IP="localhost"
 PORT="8888"
-N_WALLETS=5
-LOGLEVEL="WARN"
+N_WALLETS=2
+LOGLEVEL="INFO"
 
 function print_help() {
     echo "Usage: lua_bench.sh [OPTIONS]"
@@ -28,9 +28,9 @@ for arg in "$@"; do
         LOGLEVEL="${arg#--loglevel=}"
     fi
 done
-./build/tools/bench/parsec/lua/lua_bench --component_id=0 \
+./build/tools/bench/parsec/lua/lua_cbdc2_swap --component_id=0 \
     --ticket_machine0_endpoint=$IP:7777 --ticket_machine_count=1 \
     --shard_count=1 --shard0_count=1 --shard00_endpoint=$IP:5556 \
     --agent_count=1 --agent0_endpoint=$IP:$PORT \
-    --loglevel=$LOGLEVEL scripts/gen_bytecode.lua $N_WALLETS
+    --loglevel=$LOGLEVEL scripts/gen_bytecode_aswap.lua $N_WALLETS
 echo done

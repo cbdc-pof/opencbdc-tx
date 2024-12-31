@@ -14,6 +14,7 @@
 #include <secp256k1.h>
 
 namespace cbdc::parsec {
+
     /// Manages an account-based wallet.
     class account_wallet {
       public:
@@ -63,6 +64,43 @@ namespace cbdc::parsec {
         /// \return account balance.
         [[nodiscard]] auto get_balance() const -> uint64_t;
 
+        // Defining CBDC Tags
+        enum class CBDC_TAG {
+            cbdc1,
+            cbdc2,
+            count
+        };
+        static constexpr std::array<std::string_view,
+                                    static_cast<size_t>(CBDC_TAG::count)>
+            cbdc_tag_list = {"CBDC1", "CBDC2"};
+
+        auto init(cbdc::parsec::account_wallet::CBDC_TAG cbdc,
+                  uint64_t value,
+                  const std::function<void(bool)>& result_callback) -> bool;
+        auto create_swap_transaction(cbdc::buffer contract_key,
+                           cbdc::parsec::account_wallet::CBDC_TAG cbdc,
+                           pubkey_t to,
+                           uint64_t amount,
+                           uint64_t time_exp,
+                           cbdc::skey_hash_t s_hash,
+                           const std::function<void(bool)>& result_callback)
+            -> bool;
+
+        auto
+        execute_swap_contract(cbdc::buffer contract_key,
+                     cbdc::parsec::account_wallet::CBDC_TAG cbdc,
+                     cbdc::skey_t sk,
+                     const std::function<void(bool)>& result_callback) -> bool;
+
+        auto
+        get_secret_key(cbdc::buffer contract_key,
+                     cbdc::parsec::account_wallet::CBDC_TAG cbdc,
+                     cbdc::skey_t sk,
+                     const std::function<void(std::string)>& result_callback) -> bool;
+
+        auto
+        generate_sk_and_returned_hash() -> std::pair<cbdc::skey_hash_t, cbdc::skey_t>;
+
       private:
         privkey_t m_privkey{};
         pubkey_t m_pubkey{};
@@ -74,6 +112,22 @@ namespace cbdc::parsec {
         std::shared_ptr<broker::interface> m_broker;
         cbdc::buffer m_pay_contract_key;
         cbdc::buffer m_account_key;
+
+        auto tag_to_string(CBDC_TAG tag) const {
+            auto indx = static_cast<size_t>(tag);
+            if(indx < cbdc_tag_list.size()) {
+                return std::string(cbdc_tag_list[indx]);
+            }
+            return std::string("UNKNOWN");
+        }
+        auto execute_params(cbdc::buffer params, cbdc::buffer contract_key,
+                            const std::function<void(agent::interface::exec_return_type)>& result_callback)
+            -> bool;
+        auto make_pay_params(CBDC_TAG cbdc,
+                             pubkey_t to,
+                             uint64_t amount,
+                             cbdc::skey_hash_t s_hash,
+                             uint64_t time_expiry) const -> cbdc::buffer;
 
         std::unique_ptr<secp256k1_context,
                         decltype(&secp256k1_context_destroy)>
